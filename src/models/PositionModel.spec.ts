@@ -90,4 +90,22 @@ describe('PositionModel sizing', () => {
     expect(position.steps[0].size).toBeCloseTo(5.2174, 3);
     expect(position.steps[1].size).toBeCloseTo(4.3478, 3);
   });
+
+  it('should include fees in break-even calculations', () => {
+    const setup = new SetupModel({ resizingTimes: 1, resizingRatios: [1] });
+    const position = new PositionModel({
+      side: 'long',
+      riskAmount: 10,
+      stopLossPrice: 90,
+    });
+    position.applySetup(setup);
+    position.steps[0].price = 100;
+    position.steps[0].isFilled = true;
+
+    position.recalculateRiskDriven(setup, 10000, { makerFee: 0.01, takerFee: 0.01 });
+
+    expect(position.predictedBE).toBeCloseTo(101, 4);
+    expect(position.currentBE).toBeCloseTo(101, 4);
+    expect(position.feeTotal).toBeCloseTo(1, 4);
+  });
 });

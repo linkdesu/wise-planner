@@ -221,4 +221,21 @@ describe('PositionWorkspace', () => {
     expect(within(totalSizeControl as HTMLElement).getByText(expected.totalSize.toFixed(4))).toBeInTheDocument();
     expect(within(totalCostControl as HTMLElement).getByText(`$${expected.totalCost.toFixed(4)}`)).toBeInTheDocument();
   });
+
+  it('should disable close until realized PnL is provided', () => {
+    const { rerender } = renderWorkspace();
+
+    expect(screen.getByRole('button', { name: /close/i })).toBeDisabled();
+
+    const position = plannerState.positions[0];
+    position.pnl = 123;
+    plannerState.updatePosition(position);
+    rerender(
+      <ChakraProvider value={system}>
+        <PositionWorkspace />
+      </ChakraProvider>
+    );
+
+    expect(screen.getByRole('button', { name: /close/i })).not.toBeDisabled();
+  });
 });

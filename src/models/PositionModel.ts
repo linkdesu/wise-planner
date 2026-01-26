@@ -63,7 +63,12 @@ export class PositionModel implements IPosition {
   /**
    * Recalculate sizing using user-input risk and stop loss with a margin cap.
    */
-  recalculateRiskDriven (setup: ISetup, accountBalance = 0) {
+  recalculateRiskDriven (
+    setup: ISetup,
+    accountBalance = 0,
+    fees?: { makerFee: number; takerFee: number }
+  ) {
+    this.feeTotal = 0;
     const totalRatioFixed = this._getTotalRatioFixed(setup);
     if (totalRatioFixed === 0n) return;
 
@@ -71,7 +76,7 @@ export class PositionModel implements IPosition {
     if (lossPerCostFixed <= 0n) return;
 
     const totalCostFixed = this._getTotalCostFromRisk(accountBalance, lossPerCostFixed);
-    this._distributeCost(totalCostFixed, setup, totalRatioFixed);
+    this._distributeCost(totalCostFixed, setup, totalRatioFixed, fees);
   }
 
   private _getTotalRatioFixed (setup: ISetup): bigint {
@@ -119,11 +124,17 @@ export class PositionModel implements IPosition {
     return totalCostFixed;
   }
 
-  private _distributeCost (totalCostFixed: bigint, setup: ISetup, totalRatioFixed: bigint) {
+  private _distributeCost (
+    totalCostFixed: bigint,
+    setup: ISetup,
+    totalRatioFixed: bigint,
+    fees?: { makerFee: number; takerFee: number }
+  ) {
     if (totalCostFixed <= 0n || totalRatioFixed <= 0n) return;
 
     let totalFilledSizeFixed = 0n;
     let totalFilledCostFixed = 0n;
+    let totalFilledFeeFixed = 0n;
     let cumSizeFixed = 0n;
     let cumCostFixed = 0n;
 
@@ -136,22 +147,27 @@ export class PositionModel implements IPosition {
       if (step.price <= 0 || normalizedRatioFixed <= 0n || priceFixed === 0n) return;
 
       const stepCostFixed = mulFixed(totalCostFixed, normalizedRatioFixed);
+      const feeRate = step.orderType === 'maker' ? (fees?.makerFee || 0) : (fees?.takerFee || 0);
+      const stepFeeFixed = mulFixed(stepCostFixed, toFixed(feeRate));
       const stepSizeFixed = divFixed(stepCostFixed, priceFixed);
       step.size = fromFixed(stepSizeFixed);
       step.cost = fromFixed(stepCostFixed);
+      step.fee = fromFixed(stepFeeFixed);
 
       cumSizeFixed += stepSizeFixed;
-      cumCostFixed += stepCostFixed;
+      cumCostFixed += stepCostFixed + stepFeeFixed;
       step.predictedBE = cumSizeFixed > 0n ? fromFixed(divFixed(cumCostFixed, cumSizeFixed)) : 0;
 
       if (step.isFilled) {
         totalFilledSizeFixed += stepSizeFixed;
-        totalFilledCostFixed += stepCostFixed;
+        totalFilledCostFixed += stepCostFixed + stepFeeFixed;
+        totalFilledFeeFixed += stepFeeFixed;
       }
     });
 
     this.predictedBE = cumSizeFixed > 0n ? fromFixed(divFixed(cumCostFixed, cumSizeFixed)) : 0;
     this.currentBE = totalFilledSizeFixed > 0n ? fromFixed(divFixed(totalFilledCostFixed, totalFilledSizeFixed)) : 0;
+    this.feeTotal = fromFixed(totalFilledFeeFixed);
   }
 
   getMarginEstimate (): number {

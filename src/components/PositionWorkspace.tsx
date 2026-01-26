@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import {
-  Box, Button, NativeSelect, VStack, HStack, Card,
+  Box, Button, Select, VStack, HStack, Card,
   Text, Badge, Grid, GridItem, Field, Input,
   NumberInput, Separator, Checkbox,
   IconButton, Switch,
-  Heading
+  Heading, createListCollection
 } from '@chakra-ui/react';
 import { Plus, Trash } from 'lucide-react';
 import { usePlanner } from '../hooks/usePlanner';
@@ -22,6 +22,9 @@ export function PositionWorkspace () {
 
   // Filter positions for active account
   const accountPositions = positions.filter(p => p.accountId === activeAccountId);
+  const accountCollection = createListCollection({
+    items: accounts.map(a => ({ label: a.name, value: a.id })),
+  });
 
   const handleAddPosition = () => {
     if (!currentAccount) return;
@@ -36,7 +39,10 @@ export function PositionWorkspace () {
     if (setups.length > 0) {
       newPos.applySetup(setups[0]);
       // Initial calc
-      newPos.recalculateRiskDriven(setups[0], currentAccount.currentBalance);
+      newPos.recalculateRiskDriven(setups[0], currentAccount.currentBalance, {
+        makerFee: currentAccount.makerFee,
+        takerFee: currentAccount.takerFee,
+      });
     }
 
     addPosition(newPos);
@@ -68,15 +74,29 @@ export function PositionWorkspace () {
       <HStack justify="space-between">
         <HStack>
           <Text color="muted">Active Account:</Text>
-          <NativeSelect.Root w="200px">
-            <NativeSelect.Field
-              value={activeAccountId || ''}
-              onChange={(e) => setSelectedAccountId(e.target.value)}
-            >
-              {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-            </NativeSelect.Field>
-            <NativeSelect.Indicator />
-          </NativeSelect.Root>
+          <Select.Root
+            size="sm"
+            width="200px"
+            collection={accountCollection}
+            value={activeAccountId ? [activeAccountId] : []}
+            onValueChange={(e) => setSelectedAccountId(e.value[0] || '')}
+          >
+            <Select.Control>
+              <Select.Trigger>
+                <Select.ValueText placeholder="Select account" />
+                <Select.Indicator />
+              </Select.Trigger>
+            </Select.Control>
+            <Select.Positioner>
+              <Select.Content bg="surface" color="fg" borderColor="border" boxShadow="lg">
+                {accountCollection.items.map(item => (
+                  <Select.Item item={item} key={item.value}>
+                    <Select.ItemText>{item.label}</Select.ItemText>
+                  </Select.Item>
+                ))}
+              </Select.Content>
+            </Select.Positioner>
+          </Select.Root>
           <Badge bg="success" color="bg" fontSize="md">
             ${currentAccount.currentBalance.toFixed(2)}
           </Badge>
@@ -98,6 +118,7 @@ export function PositionWorkspace () {
               position={pos}
               setups={setups}
               accountBalance={currentAccount.currentBalance}
+              accountFees={{ makerFee: currentAccount.makerFee, takerFee: currentAccount.takerFee }}
               onUpdate={(updater) => handleUpdatePosition(pos.id, updater)}
               onDelete={() => handleDeletePosition(pos.id)}
             />
@@ -126,19 +147,30 @@ export function PositionWorkspace () {
 
 // --- Sub-components ---
 
-function PositionCard ({ position, setups, accountBalance, onUpdate, onDelete }: {
+function PositionCard ({ position, setups, accountBalance, accountFees, onUpdate, onDelete }: {
   position: PositionModel,
   setups: SetupModel[],
   accountBalance: number,
+  accountFees: { makerFee: number; takerFee: number },
   onUpdate: (fn: (p: PositionModel) => void) => void,
   onDelete: () => void
 }) {
+  const { makerFee, takerFee } = accountFees;
+  const setupCollection = createListCollection({
+    items: setups.map(s => ({ label: s.name, value: s.id })),
+  });
+  const orderTypeCollection = createListCollection({
+    items: [
+      { label: 'Taker', value: 'taker' },
+      { label: 'Maker', value: 'maker' },
+    ],
+  });
   const handleSetupChange = (setupId: string) => {
     const setup = setups.find(s => s.id === setupId);
     if (setup) {
       onUpdate(p => {
         p.applySetup(setup);
-        p.recalculateRiskDriven(setup, accountBalance);
+        p.recalculateRiskDriven(setup, accountBalance, { makerFee, takerFee });
       });
     }
   };
@@ -146,7 +178,7 @@ function PositionCard ({ position, setups, accountBalance, onUpdate, onDelete }:
   const handleRecalculate = () => {
     const setup = setups.find(s => s.id === position.setupId);
     if (setup) {
-      onUpdate(p => p.recalculateRiskDriven(setup, accountBalance));
+      onUpdate(p => p.recalculateRiskDriven(setup, accountBalance, { makerFee, takerFee }));
     }
   };
 
@@ -161,9 +193,11 @@ function PositionCard ({ position, setups, accountBalance, onUpdate, onDelete }:
   const marginEst = position.getMarginEstimate ? position.getMarginEstimate() : 0;
   const totalSize = position.steps.reduce((sum, step) => sum + step.size, 0);
   const totalCost = position.steps.reduce((sum, step) => sum + step.cost, 0);
+  const totalFees = position.feeTotal || 0;
   const marginUsagePct = accountBalance > 0
     ? (marginEst / accountBalance) * 100
     : 0;
+  const canClose = position.pnl !== undefined && !Number.isNaN(position.pnl);
 
   return (
     <Card.Root
@@ -196,7 +230,7 @@ function PositionCard ({ position, setups, accountBalance, onUpdate, onDelete }:
                         // Recalculate immediately on side switch as Risk/SL relationship inverts
                         const setup = setups.find(s => s.id === p.setupId);
                         if (setup) {
-                          p.recalculateRiskDriven(setup, accountBalance);
+                          p.recalculateRiskDriven(setup, accountBalance, { makerFee, takerFee });
                         }
                       });
                     }}
@@ -215,25 +249,32 @@ function PositionCard ({ position, setups, accountBalance, onUpdate, onDelete }:
                   placeholder="SYMBOL"
                   fontWeight="bold"
                 />
-                <NativeSelect.Root w="160px">
-                  <NativeSelect.Field
-                    value={position.setupId}
-                    onChange={e => handleSetupChange(e.target.value)}
-                    placeholder="Strategy"
-                  >
-                    {setups.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </NativeSelect.Field>
-                  <NativeSelect.Indicator />
-                </NativeSelect.Root>
+                <Select.Root
+                  size="sm"
+                  width="240px"
+                  collection={setupCollection}
+                  value={position.setupId ? [position.setupId] : []}
+                  onValueChange={(e) => handleSetupChange(e.value[0] || '')}
+                >
+                  <Select.Control>
+                    <Select.Trigger>
+                      <Select.ValueText placeholder="Strategy" />
+                      <Select.Indicator />
+                    </Select.Trigger>
+                  </Select.Control>
+                  <Select.Positioner>
+                    <Select.Content bg="surface" color="fg" borderColor="border" boxShadow="lg">
+                      {setupCollection.items.map(item => (
+                        <Select.Item item={item} key={item.value}>
+                          <Select.ItemText>{item.label}</Select.ItemText>
+                        </Select.Item>
+                      ))}
+                    </Select.Content>
+                  </Select.Positioner>
+                </Select.Root>
                 <Badge bg={isOpened ? 'success' : 'brand'} color="bg">{position.status.toUpperCase()}</Badge>
               </HStack>
               <HStack>
-                <Button size="sm" bg="danger" color="bg" _hover={{ bg: 'accentAlt', color: 'bg' }} onClick={() => onUpdate(p => {
-                  p.status = 'closed';
-                  p.closedAt = Date.now();
-                })}>
-                  Close
-                </Button>
                 <IconButton aria-label="Delete" size="sm" onClick={onDelete} variant="ghost" color="danger">
                   <Trash size={14} />
                 </IconButton>
@@ -303,6 +344,12 @@ function PositionCard ({ position, setups, accountBalance, onUpdate, onDelete }:
           </GridItem>
           <GridItem colSpan={2}>
             <Field.Root>
+              <Field.Label fontSize="xs" color="muted">Paid Fees</Field.Label>
+              <Text fontSize="xl" fontWeight="bold" color="warning">{totalFees > 0 ? `$${totalFees.toFixed(4)}` : '-'}</Text>
+            </Field.Root>
+          </GridItem>
+          <GridItem colSpan={2}>
+            <Field.Root>
               <Field.Label fontSize="xs" color="muted">Total Size (Base Asset)</Field.Label>
               <Text fontSize="xl" fontWeight="bold" color="fg">{totalSize > 0 ? totalSize.toFixed(4) : '-'}</Text>
             </Field.Root>
@@ -318,21 +365,23 @@ function PositionCard ({ position, setups, accountBalance, onUpdate, onDelete }:
           {/* Resizing Steps Table */}
           <GridItem colSpan={12}>
             <Text fontSize="sm" fontWeight="bold" mb={2} color="accentAlt">Resizing Steps (Calculated)</Text>
-            <Grid templateColumns="repeat(14, 1fr)" gap={1} mb={2} fontSize="xs" color="muted">
+            <Grid templateColumns="repeat(16, 1fr)" gap={1} mb={2} fontSize="xs" color="muted">
               <GridItem colSpan={1}>#</GridItem>
               <GridItem colSpan={3}>Price</GridItem>
               <GridItem colSpan={3}>Size</GridItem>
               <GridItem colSpan={2}>Est. Cost</GridItem>
+              <GridItem colSpan={2}>Fee</GridItem>
               <GridItem colSpan={2}>Pred. BE</GridItem>
               <GridItem colSpan={2}>Order</GridItem>
               <GridItem colSpan={1}>Fill</GridItem>
             </Grid>
             {position.steps.map((step, idx) => (
-              <Grid key={step.id} templateColumns="repeat(14, 1fr)" gap={1} mb={2} alignItems="center">
+              <Grid key={step.id} templateColumns="repeat(16, 1fr)" gap={1} mb={2} alignItems="center">
                 <GridItem colSpan={1} fontSize="sm">{idx + 1}</GridItem>
                 <GridItem colSpan={3}>
                   <NumberInput.Root
                     size="sm"
+                    w="90%"
                     value={step.price.toString()}
                     disabled={step.isFilled}
                     onValueChange={(e) => onUpdate(p => { p.steps[idx].price = Number(e.value); })}
@@ -348,19 +397,40 @@ function PositionCard ({ position, setups, accountBalance, onUpdate, onDelete }:
                   <Text fontSize="xs" color="muted">${step.cost.toFixed(0)}</Text>
                 </GridItem>
                 <GridItem colSpan={2}>
+                  <Text fontSize="xs" color="warning">{step.fee ? `$${step.fee.toFixed(4)}` : '-'}</Text>
+                </GridItem>
+                <GridItem colSpan={2}>
                   <Text fontSize="xs" color="info">{step.predictedBE?.toFixed(2) || '-'}</Text>
                 </GridItem>
                 <GridItem colSpan={2}>
-                  <NativeSelect.Root size="xs">
-                    <NativeSelect.Field
-                      value={step.orderType}
-                      onChange={e => onUpdate(p => { p.steps[idx].orderType = e.target.value as OrderType; })}
-                    >
-                      <option value="taker">Taker</option>
-                      <option value="maker">Maker</option>
-                    </NativeSelect.Field>
-                    <NativeSelect.Indicator />
-                  </NativeSelect.Root>
+                  <Select.Root
+                    size="xs"
+                    collection={orderTypeCollection}
+                    value={[step.orderType]}
+                    onValueChange={(e) => onUpdate(p => {
+                      p.steps[idx].orderType = (e.value[0] || 'taker') as OrderType;
+                      const setup = setups.find(s => s.id === p.setupId);
+                      if (setup) {
+                        p.recalculateRiskDriven(setup, accountBalance, { makerFee, takerFee });
+                      }
+                    })}
+                  >
+                    <Select.Control>
+                      <Select.Trigger>
+                        <Select.ValueText />
+                        <Select.Indicator />
+                      </Select.Trigger>
+                    </Select.Control>
+                    <Select.Positioner>
+                      <Select.Content bg="surface" color="fg" borderColor="border" boxShadow="lg">
+                        {orderTypeCollection.items.map(item => (
+                          <Select.Item item={item} key={item.value}>
+                            <Select.ItemText>{item.label}</Select.ItemText>
+                          </Select.Item>
+                        ))}
+                      </Select.Content>
+                    </Select.Positioner>
+                  </Select.Root>
                 </GridItem>
                 <GridItem colSpan={1}>
                   <Checkbox.Root
@@ -375,7 +445,7 @@ function PositionCard ({ position, setups, accountBalance, onUpdate, onDelete }:
 
                       const setup = setups.find(s => s.id === p.setupId);
                       if (setup) {
-                        p.recalculateRiskDriven(setup, accountBalance);
+                        p.recalculateRiskDriven(setup, accountBalance, { makerFee, takerFee });
                       }
                     })}
                   >
@@ -385,6 +455,43 @@ function PositionCard ({ position, setups, accountBalance, onUpdate, onDelete }:
                 </GridItem>
               </Grid>
             ))}
+          </GridItem>
+
+          <GridItem colSpan={12}>
+            <Separator my={3} borderColor="borderSubtle" />
+            <HStack justify="space-between">
+              <HStack>
+                <Text fontSize="sm" color="muted">Realized PnL (Net)</Text>
+                <NumberInput.Root
+                  size="sm"
+                  w="140px"
+                  value={position.pnl?.toString() ?? ''}
+                  onValueChange={(e) => onUpdate(p => {
+                    p.pnl = e.value === '' ? undefined : Number(e.value);
+                  })}
+                >
+                  <NumberInput.Control />
+                  <NumberInput.Input
+                    aria-label="Realized PnL"
+                    color={position.pnl && position.pnl > 0 ? 'success' : 'danger'}
+                    fontWeight="bold"
+                  />
+                </NumberInput.Root>
+              </HStack>
+              <Button
+                size="sm"
+                bg="danger"
+                color="bg"
+                _hover={{ bg: 'accentAlt', color: 'bg' }}
+                disabled={!canClose}
+                onClick={() => onUpdate(p => {
+                  p.status = 'closed';
+                  p.closedAt = Date.now();
+                })}
+              >
+                Close
+              </Button>
+            </HStack>
           </GridItem>
         </Grid>
       </Card.Body>
@@ -428,6 +535,10 @@ function ClosedPositionCard ({ position, onUpdate, onDelete }: { position: Posit
                 fontWeight="bold"
               />
             </NumberInput.Root>
+            <Text fontSize="sm" color="muted">Fees:</Text>
+            <Text fontSize="sm" color="warning">
+              {position.feeTotal ? `$${position.feeTotal.toFixed(4)}` : '-'}
+            </Text>
             <IconButton aria-label="Delete" size="sm" variant="ghost" onClick={onDelete}>
               <Trash size={14} />
             </IconButton>
