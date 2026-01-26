@@ -7,8 +7,9 @@ import { PositionWorkspace } from './components/PositionWorkspace';
 import { usePlanner } from './hooks/usePlanner';
 
 function App () {
-  const { exportData, importData } = usePlanner();
+  const { exportData, importData, clearAllData, isLoading } = usePlanner();
   const toast = useToast();
+  const showDevTools = new URLSearchParams(window.location.search).has('dev');
 
   const handleExport = () => {
     const data = exportData();
@@ -29,9 +30,9 @@ function App () {
       if (file) {
         const text = await file.text();
         try {
-          importData(text);
+          await importData(text);
           toast({ title: 'Data Imported', status: 'success' });
-        } catch (err) {
+        } catch {
           toast({ title: 'Import Failed', status: 'error' });
         }
       }
@@ -39,12 +40,31 @@ function App () {
     input.click();
   };
 
+  const handleClearData = () => {
+    clearAllData();
+  };
+
+  if (isLoading) {
+    return (
+      <ChakraProvider theme={theme}>
+        <Box minH="100vh" bg="monokai.bg" color="monokai.fg" display="flex" alignItems="center" justifyContent="center">
+          <Heading size="md" color="monokai.gray.100">Initializing Terminal...</Heading>
+        </Box>
+      </ChakraProvider>
+    );
+  }
+
   return (
     <ChakraProvider theme={theme}>
       <Box minH="100vh" bg="monokai.bg" color="monokai.fg" p={4}>
         <Flex justify="space-between" align="center" mb={6}>
           <Heading size="lg" color="monokai.yellow">Termial Position Planner</Heading>
           <Flex gap={2}>
+            {showDevTools && (
+              <Button size="sm" variant="outline" colorScheme="red" onClick={handleClearData}>
+                Clear Data
+              </Button>
+            )}
             <Button size="sm" variant="outline" onClick={handleExport}>Export JSON</Button>
             <Button size="sm" variant="outline" onClick={handleImport}>Import JSON</Button>
           </Flex>

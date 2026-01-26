@@ -5,7 +5,7 @@ import { usePlanner } from '../hooks/usePlanner';
 import { AccountModel } from '../models/AccountModel';
 
 export function AccountManager () {
-  const { accounts, addAccount, updateAccount, deleteAccount } = usePlanner();
+  const { accounts, positions, addAccount, updateAccount, deleteAccount } = usePlanner();
   const [isEditing, setIsEditing] = useState<string | null>(null);
 
   // Local state for the account being edited/created
@@ -31,7 +31,6 @@ export function AccountManager () {
 
       // Better: We should probably fetch the original and update it.
       // For simplicity, re-instantiating works if constructor handles it.
-      // However, positions array needs to be preserved!
       const original = accounts.find(a => a.id === isEditing);
       if (original) {
         original.name = editData.name!;
@@ -40,7 +39,7 @@ export function AccountManager () {
         original.makerFee = Number(editData.makerFee);
         // Re-calc stats in case balance changed manually?
         // Usually initialBalance changes, currentBalance should recalc from positions + initial.
-        original.calculateStats();
+        original.calculateStats(positions);
         updateAccount(original);
       }
       setIsEditing(null);

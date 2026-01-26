@@ -2,7 +2,7 @@ import { Grid, GridItem, Card, CardBody, Text, Heading, VStack, Stat, StatLabel,
 import { usePlanner } from '../hooks/usePlanner';
 
 export function Overview () {
-  const { accounts } = usePlanner();
+  const { accounts, positions } = usePlanner();
 
   // Aggregate Stats
   const totalEquity = accounts.reduce((sum, acc) => sum + acc.currentBalance, 0);
@@ -10,7 +10,10 @@ export function Overview () {
   const totalPnL = totalEquity - totalInitial;
   const pnlPercent = totalInitial > 0 ? (totalPnL / totalInitial) * 100 : 0;
 
-  const allPositions = accounts.flatMap(acc => acc.positions.map(p => ({ ...p, accountName: acc.name })));
+  const allPositions = positions.map(p => {
+    const acc = accounts.find(a => a.id === p.accountId);
+    return { ...p, accountName: acc?.name || 'Unknown' };
+  });
   const activePositions = allPositions.filter(p => p.status !== 'closed');
   const winPositions = allPositions.filter(p => p.status === 'closed' && (p.pnl || 0) > 0);
   const winRate = allPositions.filter(p => p.status === 'closed').length > 0
