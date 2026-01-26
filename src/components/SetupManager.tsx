@@ -69,8 +69,8 @@ export function SetupManager () {
                 <Th color="monokai.gray.300" isNumeric>Steps</Th>
                 <Th color="monokai.gray.300">
                   <HStack>
-                    <Text>Ratios</Text>
-                    <Tooltip label="Comma separated values relative to each other (e.g. '1, 1, 2' means 25%, 25%, 50% risk)">
+                    <Text>Cost Ratios</Text>
+                    <Tooltip label="Comma separated values relative to each other (e.g. '1, 1, 2' means 25%, 25%, 50% of notional cost)">
                       <Info size={14} />
                     </Tooltip>
                   </HStack>
@@ -127,11 +127,10 @@ export function SetupManager () {
       </Card>
 
       <Box p={4} bg="monokai.gray.100" borderRadius="md" fontSize="sm" color="monokai.gray.300">
-        <Text fontWeight="bold" mb={2} color="monokai.yellow">Tip: Understanding Ratios</Text>
-        <Text>Ratios determine how your total risk is distributed across entries.</Text>
-        <Text>Example: <b>1 : 1 : 2</b> means the first entry takes 1/4 of risk, second takes 1/4, and third takes 2/4 (50%).</Text>
+        <Text fontWeight="bold" mb={2} color="monokai.yellow">Tip: Understanding Cost Ratios</Text>
+        <Text>Ratios determine how your total notional cost is distributed across entries.</Text>
+        <Text>Example: <b>1 : 1 : 2</b> means the first entry uses 1/4 of cost, second uses 1/4, and third uses 2/4 (50%).</Text>
       </Box>
     </VStack>
   );
 }
-

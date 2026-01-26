@@ -1,4 +1,5 @@
 import type { IPosition, IResizingStep, PositionStatus, ISetup } from './types';
+import { toFixed, fromFixed, mulFixed, divFixed } from '../utils/fixedPoint';
 
 export class PositionModel implements IPosition {
   id: string;
@@ -18,7 +19,6 @@ export class PositionModel implements IPosition {
   createdAt: number;
   closedAt?: number;
   leverage: number; // New property
-  totalSizePercent: number;
 
   constructor (data: Partial<IPosition & { accountId?: string }> = {}) {
     this.id = data.id || crypto.randomUUID();
@@ -38,7 +38,6 @@ export class PositionModel implements IPosition {
     this.predictedBE = data.predictedBE;
     this.closedAt = data.closedAt;
     this.leverage = data.leverage || 1;
-    this.totalSizePercent = data.totalSizePercent ?? 10;
   }
 
   /**
@@ -65,106 +64,94 @@ export class PositionModel implements IPosition {
    * Recalculate sizing using user-input risk and stop loss with a margin cap.
    */
   recalculateRiskDriven (setup: ISetup, accountBalance = 0) {
-    const totalRatio = this._getTotalRatio(setup);
-    if (totalRatio === 0) return;
+    const totalRatioFixed = this._getTotalRatioFixed(setup);
+    if (totalRatioFixed === 0n) return;
 
-    const weightedLossPerUnit = this._getWeightedLossPerUnit(setup);
-    if (weightedLossPerUnit <= 0) return;
+    const lossPerCostFixed = this._getLossPerCostFixed(setup, totalRatioFixed);
+    if (lossPerCostFixed <= 0n) return;
 
-    const totalSize = this._getTotalSizeFromRisk(setup, accountBalance, weightedLossPerUnit);
-    this._distributeSize(totalSize, setup, totalRatio);
+    const totalCostFixed = this._getTotalCostFromRisk(accountBalance, lossPerCostFixed);
+    this._distributeCost(totalCostFixed, setup, totalRatioFixed);
   }
 
-  private _getTotalRatio (setup: ISetup): number {
-    return setup.resizingRatios.reduce((a, b) => a + b, 0);
+  private _getTotalRatioFixed (setup: ISetup): bigint {
+    return setup.resizingRatios.reduce((sum, ratio) => sum + toFixed(ratio), 0n);
   }
 
-  private _getWeightedAveragePrice (setup: ISetup): number {
-    let ratioSum = 0;
-    let ratioWeightedPriceSum = 0;
+  private _getLossPerCostFixed (setup: ISetup, totalRatioFixed: bigint): bigint {
+    if (totalRatioFixed === 0n) return 0n;
+
+    let lossPerCostFixed = 0n;
 
     this.steps.forEach((step, idx) => {
       const ratio = setup.resizingRatios[idx] || 0;
-      if (ratio <= 0 || step.price <= 0) return;
-      ratioSum += ratio;
-      ratioWeightedPriceSum += ratio * step.price;
-    });
-
-    if (ratioSum > 0) {
-      return ratioWeightedPriceSum / ratioSum;
-    }
-    return 0;
-  }
-
-  private _getWeightedLossPerUnit (setup: ISetup): number {
-    const totalRatio = this._getTotalRatio(setup);
-    if (totalRatio === 0) return 0;
-
-    let weightedLossSum = 0;
-    this.steps.forEach((step, idx) => {
-      const ratio = setup.resizingRatios[idx] || 0;
-      const normalizedRatio = ratio / totalRatio;
-      if (step.price <= 0 || normalizedRatio <= 0) return;
+      const ratioFixed = toFixed(ratio);
+      if (ratioFixed <= 0n || step.price <= 0) return;
+      const normalizedRatioFixed = divFixed(ratioFixed, totalRatioFixed);
+      if (normalizedRatioFixed <= 0n) return;
 
       const lossPerUnit = this.side === 'long'
         ? step.price - this.stopLossPrice
         : this.stopLossPrice - step.price;
 
-      weightedLossSum += normalizedRatio * lossPerUnit;
+      const lossPerUnitFixed = toFixed(lossPerUnit);
+      const priceFixed = toFixed(step.price);
+      if (priceFixed === 0n) return;
+      const lossPerPriceFixed = divFixed(lossPerUnitFixed, priceFixed);
+      lossPerCostFixed += mulFixed(normalizedRatioFixed, lossPerPriceFixed);
     });
 
-    return weightedLossSum;
+    return lossPerCostFixed;
   }
 
-  private _getTotalSizeFromRisk (setup: ISetup, accountBalance: number, weightedLossPerUnit: number): number {
-    const percent = Math.min(100, Math.max(0, this.totalSizePercent));
-    if (weightedLossPerUnit <= 0 || this.riskAmount <= 0) return 0;
+  private _getTotalCostFromRisk (accountBalance: number, lossPerCostFixed: bigint): bigint {
+    if (lossPerCostFixed <= 0n || this.riskAmount <= 0) return 0n;
 
-    let totalSize = this.riskAmount / weightedLossPerUnit;
+    let totalCostFixed = divFixed(toFixed(this.riskAmount), lossPerCostFixed);
 
-    if (accountBalance > 0 && percent > 0) {
-      const weightedAvgPrice = this._getWeightedAveragePrice(setup);
-      if (weightedAvgPrice > 0) {
-        const targetMargin = (accountBalance * percent) / 100;
-        const targetNotional = targetMargin * (this.leverage > 0 ? this.leverage : 1);
-        const capSize = targetNotional / weightedAvgPrice;
-        if (capSize > 0) {
-          totalSize = Math.min(totalSize, capSize);
-        }
+    if (accountBalance > 0 && this.leverage > 0) {
+      const targetNotionalFixed = mulFixed(toFixed(accountBalance), toFixed(this.leverage));
+      if (targetNotionalFixed > 0n && totalCostFixed > targetNotionalFixed) {
+        totalCostFixed = targetNotionalFixed;
       }
     }
 
-    return totalSize;
+    return totalCostFixed;
   }
 
-  private _distributeSize (totalSize: number, setup: ISetup, totalRatio: number) {
-    let totalCost = 0;
-    let totalFilledSize = 0;
-    let totalFilledCost = 0;
-    let cumSize = 0;
-    let cumCost = 0;
+  private _distributeCost (totalCostFixed: bigint, setup: ISetup, totalRatioFixed: bigint) {
+    if (totalCostFixed <= 0n || totalRatioFixed <= 0n) return;
+
+    let totalFilledSizeFixed = 0n;
+    let totalFilledCostFixed = 0n;
+    let cumSizeFixed = 0n;
+    let cumCostFixed = 0n;
 
     this.steps.forEach((step, idx) => {
       const ratio = setup.resizingRatios[idx] || 0;
-      const normalizedRatio = totalRatio > 0 ? (ratio / totalRatio) : 0;
+      const ratioFixed = toFixed(ratio);
+      const normalizedRatioFixed = totalRatioFixed > 0n ? divFixed(ratioFixed, totalRatioFixed) : 0n;
+      const priceFixed = toFixed(step.price);
 
-      step.size = totalSize * normalizedRatio;
-      step.cost = step.size * step.price;
+      if (step.price <= 0 || normalizedRatioFixed <= 0n || priceFixed === 0n) return;
 
-      cumSize += step.size;
-      cumCost += step.cost;
-      step.predictedBE = cumSize > 0 ? cumCost / cumSize : 0;
+      const stepCostFixed = mulFixed(totalCostFixed, normalizedRatioFixed);
+      const stepSizeFixed = divFixed(stepCostFixed, priceFixed);
+      step.size = fromFixed(stepSizeFixed);
+      step.cost = fromFixed(stepCostFixed);
 
-      totalCost += step.cost;
+      cumSizeFixed += stepSizeFixed;
+      cumCostFixed += stepCostFixed;
+      step.predictedBE = cumSizeFixed > 0n ? fromFixed(divFixed(cumCostFixed, cumSizeFixed)) : 0;
 
       if (step.isFilled) {
-        totalFilledSize += step.size;
-        totalFilledCost += step.cost;
+        totalFilledSizeFixed += stepSizeFixed;
+        totalFilledCostFixed += stepCostFixed;
       }
     });
 
-    this.predictedBE = totalSize > 0 ? totalCost / totalSize : 0;
-    this.currentBE = totalFilledSize > 0 ? totalFilledCost / totalFilledSize : 0;
+    this.predictedBE = cumSizeFixed > 0n ? fromFixed(divFixed(cumCostFixed, cumSizeFixed)) : 0;
+    this.currentBE = totalFilledSizeFixed > 0n ? fromFixed(divFixed(totalFilledCostFixed, totalFilledSizeFixed)) : 0;
   }
 
   getMarginEstimate (): number {

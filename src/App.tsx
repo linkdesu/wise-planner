@@ -1,5 +1,5 @@
 import { ChakraProvider, Box, Flex, Heading, Tabs, TabList, TabPanels, Tab, TabPanel, Button, useToast } from '@chakra-ui/react';
-import theme from './theme/monokai';
+import system from './theme/monokai';
 import { Overview } from './components/Overview';
 import { AccountManager } from './components/AccountManager';
 import { SetupManager } from './components/SetupManager';
@@ -46,7 +46,7 @@ function App () {
 
   if (isLoading) {
     return (
-      <ChakraProvider theme={theme}>
+      <ChakraProvider value={system}>
         <Box minH="100vh" bg="monokai.bg" color="monokai.fg" display="flex" alignItems="center" justifyContent="center">
           <Heading size="md" color="monokai.gray.100">Initializing Terminal...</Heading>
         </Box>
@@ -55,7 +55,7 @@ function App () {
   }
 
   return (
-    <ChakraProvider theme={theme}>
+    <ChakraProvider value={system}>
       <Box minH="100vh" bg="monokai.bg" color="monokai.fg" p={4}>
         <Flex justify="space-between" align="center" mb={6}>
           <Heading size="lg" color="monokai.yellow">Termial Position Planner</Heading>

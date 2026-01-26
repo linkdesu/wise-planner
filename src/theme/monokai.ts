@@ -1,122 +1,44 @@
-import { extendTheme, type ThemeConfig } from '@chakra-ui/react';
+import { createSystem, defaultConfig, defineConfig } from '@chakra-ui/react';
 
-const config: ThemeConfig = {
-  initialColorMode: 'dark',
-  useSystemColorMode: false,
-};
+const fontFamily = "'JetBrains Mono', 'Fira Code', monospace";
 
-const colors = {
-  monokai: {
-    bg: '#272822',
-    fg: '#F8F8F2',
-    yellow: '#E6DB74',
-    green: '#A6E22E',
-    pink: '#F92672',
-    blue: '#66D9EF',
-    orange: '#FD971F',
-    purple: '#AE81FF',
-    gray: {
-      100: '#3E3D32',
-      200: '#49483E',
-      300: '#75715E',
-      800: '#272822', // Main BG
-      900: '#1e1f1c', // Darker BG
-    },
-  },
-};
-
-const theme = extendTheme({
-  config,
-  colors,
-  styles: {
-    global: {
-      body: {
-        bg: 'monokai.bg',
-        color: 'monokai.fg',
-        fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+const config = defineConfig({
+  theme: {
+    tokens: {
+      colors: {
+        monokai: {
+          bg: { value: '#272822' },
+          fg: { value: '#F8F8F2' },
+          yellow: { value: '#E6DB74' },
+          green: { value: '#A6E22E' },
+          pink: { value: '#F92672' },
+          blue: { value: '#66D9EF' },
+          orange: { value: '#FD971F' },
+          purple: { value: '#AE81FF' },
+          gray: {
+            100: { value: '#3E3D32' },
+            200: { value: '#49483E' },
+            300: { value: '#75715E' },
+            800: { value: '#272822' },
+            900: { value: '#1e1f1c' },
+          },
+        },
+      },
+      fonts: {
+        heading: { value: fontFamily },
+        body: { value: fontFamily },
       },
     },
   },
-  components: {
-    Button: {
-      baseStyle: {
-        fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-        fontWeight: 'bold',
-      },
-      variants: {
-        solid: {
-          bg: 'monokai.green',
-          color: 'monokai.bg',
-          _hover: {
-            bg: 'monokai.yellow',
-          },
-        },
-        ghost: {
-          color: 'monokai.blue',
-          _hover: {
-            bg: 'monokai.gray.200',
-          },
-        },
-        outline: {
-          borderColor: 'monokai.purple',
-          color: 'monokai.purple',
-          _hover: {
-            bg: 'monokai.gray.100',
-          },
-        },
-      },
-    },
-    Input: {
-      variants: {
-        filled: {
-          field: {
-            bg: 'monokai.gray.100',
-            color: 'monokai.fg',
-            _hover: {
-              bg: 'monokai.gray.200',
-            },
-            _focus: {
-              bg: 'monokai.gray.200',
-              borderColor: 'monokai.pink',
-            },
-          },
-        },
-      },
-      defaultProps: {
-        variant: 'filled',
-      },
-    },
-    Select: {
-      variants: {
-        filled: {
-          field: {
-            bg: 'monokai.gray.100',
-            color: 'monokai.fg',
-            _hover: {
-              bg: 'monokai.gray.200',
-            },
-            _focus: {
-              bg: 'monokai.gray.200',
-              borderColor: 'monokai.pink',
-            },
-          },
-        },
-      },
-      defaultProps: {
-        variant: 'filled',
-      },
-    },
-    Card: {
-      baseStyle: {
-        container: {
-          bg: 'monokai.gray.100',
-          color: 'monokai.fg',
-          borderColor: 'monokai.gray.300',
-          borderWidth: '1px',
-        },
-      },
+  globalCss: {
+    'html, body': {
+      backgroundColor: 'monokai.bg',
+      color: 'monokai.fg',
+      fontFamily,
     },
   },
 });
 
-export default theme;
+const system = createSystem(defaultConfig, config);
+
+export default system;

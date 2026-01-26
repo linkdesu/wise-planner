@@ -155,6 +155,9 @@ function PositionCard ({ position, setups, accountBalance, onUpdate, onDelete }:
   const marginEst = position.getMarginEstimate ? position.getMarginEstimate() : 0;
   const totalSize = position.steps.reduce((sum, step) => sum + step.size, 0);
   const totalCost = position.steps.reduce((sum, step) => sum + step.cost, 0);
+  const marginUsagePct = accountBalance > 0
+    ? (marginEst / accountBalance) * 100
+    : 0;
 
   return (
     <Card borderTopWidth="4px" borderColor={position.side === 'long' ? 'monokai.green' : 'monokai.pink'}>
@@ -242,23 +245,6 @@ function PositionCard ({ position, setups, accountBalance, onUpdate, onDelete }:
           </GridItem>
           <GridItem colSpan={2}>
             <FormControl>
-              <FormLabel fontSize="xs" color="monokai.gray.300">Total Size %</FormLabel>
-              <NumberInput
-                value={position.totalSizePercent}
-                min={0}
-                max={100}
-                onChange={(_, v) => {
-                  const next = Math.min(100, Math.max(0, Number(v) || 0));
-                  onUpdate(p => p.totalSizePercent = next);
-                }}
-                onBlur={handleBlur}
-              >
-                <NumberInputField />
-              </NumberInput>
-            </FormControl>
-          </GridItem>
-          <GridItem colSpan={2}>
-            <FormControl>
               <FormLabel fontSize="xs" color="monokai.gray.300">Leverage (x)</FormLabel>
               <NumberInput
                 value={position.leverage || 1}
@@ -273,7 +259,12 @@ function PositionCard ({ position, setups, accountBalance, onUpdate, onDelete }:
           <GridItem colSpan={2}>
             <FormControl>
               <FormLabel fontSize="xs" color="monokai.gray.300">Est. Margin</FormLabel>
-              <Text fontSize="lg" fontWeight="bold" color="monokai.gray.300">{marginEst > 0 ? `$${marginEst.toFixed(2)}` : '-'}</Text>
+              <Text fontSize="lg" fontWeight="bold" color="monokai.gray.300">
+                {marginEst > 0 ? `$${marginEst.toFixed(2)}` : '-'}
+              </Text>
+              <Text fontSize="xs" color="monokai.gray.300">
+                {marginEst > 0 ? `${marginUsagePct.toFixed(2)}%` : '-'}
+              </Text>
             </FormControl>
           </GridItem>
           <GridItem colSpan={2}>

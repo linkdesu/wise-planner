@@ -9,7 +9,6 @@ describe('PositionModel sizing', () => {
       side: 'long',
       riskAmount: 100,
       stopLossPrice: 95,
-      totalSizePercent: 10,
     });
     position.applySetup(setup);
     position.steps[0].price = 120;
@@ -29,7 +28,6 @@ describe('PositionModel sizing', () => {
       side: 'long',
       riskAmount: 100,
       stopLossPrice: 95,
-      totalSizePercent: 10,
     });
     position.applySetup(setup);
     position.steps[0].price = 120;
@@ -37,14 +35,14 @@ describe('PositionModel sizing', () => {
 
     position.recalculateRiskDriven(setup, 10000);
 
-    expect(position.steps[0].size).toBeCloseTo(3.3333, 3);
-    expect(position.steps[1].size).toBeCloseTo(3.3333, 3);
+    expect(position.steps[0].size).toBeCloseTo(3.2258, 3);
+    expect(position.steps[1].size).toBeCloseTo(3.8710, 3);
 
     position.stopLossPrice = 90;
     position.recalculateRiskDriven(setup, 10000);
 
-    expect(position.steps[0].size).toBeCloseTo(2.5, 3);
-    expect(position.steps[1].size).toBeCloseTo(2.5, 3);
+    expect(position.steps[0].size).toBeCloseTo(2.3810, 3);
+    expect(position.steps[1].size).toBeCloseTo(2.8571, 3);
   });
 
   it('should properly recalculate size for steps after risk amount changed', () => {
@@ -53,7 +51,6 @@ describe('PositionModel sizing', () => {
       side: 'long',
       riskAmount: 100,
       stopLossPrice: 95,
-      totalSizePercent: 100,
     });
     position.applySetup(setup);
     position.steps[0].price = 120;
@@ -61,14 +58,14 @@ describe('PositionModel sizing', () => {
 
     position.recalculateRiskDriven(setup, 10000);
 
-    expect(position.steps[0].size).toBeCloseTo(3.3333, 3);
-    expect(position.steps[1].size).toBeCloseTo(3.3333, 3);
+    expect(position.steps[0].size).toBeCloseTo(3.2258, 3);
+    expect(position.steps[1].size).toBeCloseTo(3.8710, 3);
 
     position.riskAmount = 200;
     position.recalculateRiskDriven(setup, 10000);
 
-    expect(position.steps[0].size).toBeCloseTo(6.6667, 3);
-    expect(position.steps[1].size).toBeCloseTo(6.6667, 3);
+    expect(position.steps[0].size).toBeCloseTo(6.4516, 3);
+    expect(position.steps[1].size).toBeCloseTo(7.7419, 3);
   });
 
   it('should also support short positions', () => {
@@ -77,7 +74,6 @@ describe('PositionModel sizing', () => {
       side: 'short',
       riskAmount: 100,
       stopLossPrice: 130,
-      totalSizePercent: 100,
     });
     position.applySetup(setup);
     position.steps[0].price = 100;
@@ -85,13 +81,13 @@ describe('PositionModel sizing', () => {
 
     position.recalculateRiskDriven(setup, 10000);
 
-    expect(position.steps[0].size).toBeCloseTo(2.5, 3);
-    expect(position.steps[1].size).toBeCloseTo(2.5, 3);
+    expect(position.steps[0].size).toBeCloseTo(2.6087, 3);
+    expect(position.steps[1].size).toBeCloseTo(2.1739, 3);
 
     position.riskAmount = 200;
     position.recalculateRiskDriven(setup, 10000);
 
-    expect(position.steps[0].size).toBeCloseTo(5.0000, 3);
-    expect(position.steps[1].size).toBeCloseTo(5.0000, 3);
+    expect(position.steps[0].size).toBeCloseTo(5.2174, 3);
+    expect(position.steps[1].size).toBeCloseTo(4.3478, 3);
   });
 });
