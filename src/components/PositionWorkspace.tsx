@@ -3,7 +3,7 @@ import {
   Box, Button, Select, VStack, HStack, Card, CardBody,
   Text, Badge, Grid, GridItem, FormControl, FormLabel, Input,
   NumberInput, NumberInputField, Divider, Checkbox,
-  IconButton, Switch, RadioGroup, Radio
+  IconButton, Switch
 } from '@chakra-ui/react';
 import { Plus, Trash } from 'lucide-react';
 import { usePlanner } from '../hooks/usePlanner';
@@ -223,7 +223,6 @@ function PositionCard ({ position, setups, accountBalance, onUpdate, onDelete }:
                 value={position.stopLossPrice}
                 onChange={(_, v) => onUpdate(p => p.stopLossPrice = Number(v))}
                 onBlur={handleBlur}
-                isReadOnly={position.sizingMode === 'risk'}
               >
                 <NumberInputField />
               </NumberInput>
@@ -236,7 +235,6 @@ function PositionCard ({ position, setups, accountBalance, onUpdate, onDelete }:
                 value={position.riskAmount}
                 onChange={(_, v) => onUpdate(p => p.riskAmount = Number(v))}
                 onBlur={handleBlur}
-                isReadOnly={position.sizingMode === 'stopLoss'}
               >
                 <NumberInputField />
               </NumberInput>
@@ -282,28 +280,6 @@ function PositionCard ({ position, setups, accountBalance, onUpdate, onDelete }:
             <FormControl>
               <FormLabel fontSize="xs" color="monokai.gray.300">Pred. BE</FormLabel>
               <Text fontSize="lg" fontWeight="bold" color="monokai.blue">{position.predictedBE?.toFixed(2) || '-'}</Text>
-            </FormControl>
-          </GridItem>
-          <GridItem colSpan={4}>
-            <FormControl>
-              <FormLabel fontSize="xs" color="monokai.gray.300">Sizing Mode</FormLabel>
-              <RadioGroup
-                value={position.sizingMode}
-                onChange={(value) => {
-                  onUpdate(p => {
-                    p.sizingMode = value as PositionModel['sizingMode'];
-                    const setup = setups.find(s => s.id === p.setupId);
-                    if (setup) {
-                      p.recalculateRiskDriven(setup, accountBalance);
-                    }
-                  });
-                }}
-              >
-                <HStack spacing={4}>
-                  <Radio value="risk" size="sm">Fixed Risk</Radio>
-                  <Radio value="stopLoss" size="sm">Fixed SL</Radio>
-                </HStack>
-              </RadioGroup>
             </FormControl>
           </GridItem>
           <GridItem colSpan={4}>

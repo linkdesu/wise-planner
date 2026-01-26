@@ -21,7 +21,6 @@ export interface IPosition {
   entryPrice: number;
   stopLossPrice: number;
   leverage: number;
-  sizingMode: 'risk' | 'stopLoss';
   totalSizePercent: number;
   riskAmount: number; // Planned risk amount
   steps: IResizingStep[];

@@ -18,7 +18,6 @@ export class PositionModel implements IPosition {
   createdAt: number;
   closedAt?: number;
   leverage: number; // New property
-  sizingMode: 'risk' | 'stopLoss';
   totalSizePercent: number;
 
   constructor (data: Partial<IPosition & { accountId?: string }> = {}) {
@@ -39,7 +38,6 @@ export class PositionModel implements IPosition {
     this.predictedBE = data.predictedBE;
     this.closedAt = data.closedAt;
     this.leverage = data.leverage || 1;
-    this.sizingMode = data.sizingMode === 'stopLoss' ? 'stopLoss' : 'risk';
     this.totalSizePercent = data.totalSizePercent ?? 10;
   }
 
@@ -48,8 +46,6 @@ export class PositionModel implements IPosition {
    */
   applySetup (setup: ISetup) {
     this.setupId = setup.id;
-    // Requirements: "the size of each step should be fixed, not calculated dynamically" (initially)
-    // We initialize steps with 0 size if new.
 
     if (this.steps.length !== setup.resizingTimes) {
       this.steps = Array.from({ length: setup.resizingTimes }, (_, i) => ({
@@ -66,32 +62,17 @@ export class PositionModel implements IPosition {
   }
 
   /**
-   * Recalculate sizing using total size percent and mode-driven risk/stop loss.
+   * Recalculate sizing using user-input risk and stop loss with a margin cap.
    */
   recalculateRiskDriven (setup: ISetup, accountBalance = 0) {
     const totalRatio = this._getTotalRatio(setup);
     if (totalRatio === 0) return;
 
-    const totalSize = this._getTotalSizeFromPercent(setup, accountBalance);
+    const weightedLossPerUnit = this._getWeightedLossPerUnit(setup);
+    if (weightedLossPerUnit <= 0) return;
+
+    const totalSize = this._getTotalSizeFromRisk(setup, accountBalance, weightedLossPerUnit);
     this._distributeSize(totalSize, setup, totalRatio);
-
-    const { totalSize: derivedSize, totalCost } = this._getStepTotals();
-    if (derivedSize <= 0) {
-      return;
-    }
-
-    if (this.sizingMode === 'risk') {
-      const stopLoss = this._getStopLossFromRisk(derivedSize, totalCost, this.riskAmount, this.side);
-      if (Number.isFinite(stopLoss)) {
-        this.stopLossPrice = stopLoss;
-      }
-      return;
-    }
-
-    const riskAmount = this._getRiskFromStopLoss(derivedSize, totalCost, this.stopLossPrice, this.side);
-    if (Number.isFinite(riskAmount)) {
-      this.riskAmount = riskAmount;
-    }
   }
 
   private _getTotalRatio (setup: ISetup): number {
@@ -99,63 +80,61 @@ export class PositionModel implements IPosition {
   }
 
   private _getWeightedAveragePrice (setup: ISetup): number {
-    let weightSum = 0;
-    let weightedPriceSum = 0;
     let ratioSum = 0;
     let ratioWeightedPriceSum = 0;
 
     this.steps.forEach((step, idx) => {
       const ratio = setup.resizingRatios[idx] || 0;
       if (ratio <= 0 || step.price <= 0) return;
-      const weight = ratio / step.price;
-      weightSum += weight;
-      weightedPriceSum += weight * step.price;
       ratioSum += ratio;
       ratioWeightedPriceSum += ratio * step.price;
     });
 
-    if (weightSum > 0) {
-      return weightedPriceSum / weightSum;
-    }
     if (ratioSum > 0) {
       return ratioWeightedPriceSum / ratioSum;
     }
     return 0;
   }
 
-  private _getTotalSizeFromPercent (setup: ISetup, accountBalance: number): number {
-    const percent = Math.min(100, Math.max(0, this.totalSizePercent));
-    if (accountBalance <= 0 || percent <= 0) return 0;
-    const weightedAvgPrice = this._getWeightedAveragePrice(setup);
-    if (weightedAvgPrice <= 0) return 0;
-    const targetNotional = (accountBalance * percent) / 100;
-    return targetNotional / weightedAvgPrice;
-  }
+  private _getWeightedLossPerUnit (setup: ISetup): number {
+    const totalRatio = this._getTotalRatio(setup);
+    if (totalRatio === 0) return 0;
 
-  private _getStepTotals (): { totalSize: number, totalCost: number } {
-    let totalSize = 0;
-    let totalCost = 0;
-    this.steps.forEach(step => {
-      totalSize += step.size;
-      totalCost += step.cost;
+    let weightedLossSum = 0;
+    this.steps.forEach((step, idx) => {
+      const ratio = setup.resizingRatios[idx] || 0;
+      const normalizedRatio = ratio / totalRatio;
+      if (step.price <= 0 || normalizedRatio <= 0) return;
+
+      const lossPerUnit = this.side === 'long'
+        ? step.price - this.stopLossPrice
+        : this.stopLossPrice - step.price;
+
+      weightedLossSum += normalizedRatio * lossPerUnit;
     });
-    return { totalSize, totalCost };
+
+    return weightedLossSum;
   }
 
-  private _getStopLossFromRisk (totalSize: number, totalCost: number, riskAmount: number, side: 'long' | 'short'): number {
-    if (totalSize <= 0) return 0;
-    if (side === 'long') {
-      return (totalCost - riskAmount) / totalSize;
-    }
-    return (riskAmount + totalCost) / totalSize;
-  }
+  private _getTotalSizeFromRisk (setup: ISetup, accountBalance: number, weightedLossPerUnit: number): number {
+    const percent = Math.min(100, Math.max(0, this.totalSizePercent));
+    if (weightedLossPerUnit <= 0 || this.riskAmount <= 0) return 0;
 
-  private _getRiskFromStopLoss (totalSize: number, totalCost: number, stopLossPrice: number, side: 'long' | 'short'): number {
-    if (totalSize <= 0) return 0;
-    if (side === 'long') {
-      return totalCost - (stopLossPrice * totalSize);
+    let totalSize = this.riskAmount / weightedLossPerUnit;
+
+    if (accountBalance > 0 && percent > 0) {
+      const weightedAvgPrice = this._getWeightedAveragePrice(setup);
+      if (weightedAvgPrice > 0) {
+        const targetMargin = (accountBalance * percent) / 100;
+        const targetNotional = targetMargin * (this.leverage > 0 ? this.leverage : 1);
+        const capSize = targetNotional / weightedAvgPrice;
+        if (capSize > 0) {
+          totalSize = Math.min(totalSize, capSize);
+        }
+      }
     }
-    return (stopLossPrice * totalSize) - totalCost;
+
+    return totalSize;
   }
 
   private _distributeSize (totalSize: number, setup: ISetup, totalRatio: number) {
@@ -164,24 +143,12 @@ export class PositionModel implements IPosition {
     let totalFilledCost = 0;
     let cumSize = 0;
     let cumCost = 0;
-    let weightSum = 0;
-    const weights = this.steps.map((step, idx) => {
-      const ratio = setup.resizingRatios[idx] || 0;
-      if (ratio <= 0 || step.price <= 0) {
-        return 0;
-      }
-      const weight = ratio / step.price;
-      weightSum += weight;
-      return weight;
-    });
 
     this.steps.forEach((step, idx) => {
       const ratio = setup.resizingRatios[idx] || 0;
       const normalizedRatio = totalRatio > 0 ? (ratio / totalRatio) : 0;
-      const normalizedWeight = weightSum > 0 ? (weights[idx] / weightSum) : 0;
-      const allocation = weightSum > 0 ? normalizedWeight : normalizedRatio;
 
-      step.size = totalSize * allocation;
+      step.size = totalSize * normalizedRatio;
       step.cost = step.size * step.price;
 
       cumSize += step.size;
