@@ -9,15 +9,20 @@ export interface IResizingStep {
   orderType: OrderType;
   fee: number;
   isFilled: boolean;
+  predictedBE?: number;
 }
 
 export interface IPosition {
   id: string;
+  side: 'long' | 'short';
   symbol: string;
   setupId: string;
   status: PositionStatus;
   entryPrice: number;
   stopLossPrice: number;
+  leverage: number;
+  sizingMode: 'risk' | 'stopLoss';
+  totalSizePercent: number;
   riskAmount: number; // Planned risk amount
   steps: IResizingStep[];
   pnl?: number;
@@ -42,5 +47,4 @@ export interface IAccount {
   currentBalance: number;
   takerFee: number; // Percentage, e.g. 0.0005 for 0.05%
   makerFee: number; // Percentage
-  positions: IPosition[];
 }
