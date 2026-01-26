@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import {
-  Box, Button, Select, VStack, HStack, Card, CardBody,
-  Text, Badge, Grid, GridItem, FormControl, FormLabel, Input,
-  NumberInput, NumberInputField, Divider, Checkbox,
-  IconButton, Switch
+  Box, Button, NativeSelect, VStack, HStack, Card,
+  Text, Badge, Grid, GridItem, Field, Input,
+  NumberInput, Separator, Checkbox,
+  IconButton, Switch,
+  Heading
 } from '@chakra-ui/react';
 import { Plus, Trash } from 'lucide-react';
 import { usePlanner } from '../hooks/usePlanner';
@@ -61,31 +62,36 @@ export function PositionWorkspace () {
   const closedPositions = accountPositions.filter(p => p.status === 'closed').sort((a, b) => (b.closedAt || 0) - (a.closedAt || 0));
 
   return (
-    <VStack spacing={6} align="stretch">
+    <VStack gap={6} align="stretch">
+      <Heading size="md" color="accent" h="40px" display="flex" alignItems="center">Position Workspace</Heading>
+
       <HStack justify="space-between">
         <HStack>
-          <Text color="monokai.gray.300">Active Account:</Text>
-          <Select
-            value={activeAccountId || ''}
-            onChange={(e) => setSelectedAccountId(e.target.value)}
-            w="200px"
-          >
-            {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-          </Select>
-          <Badge colorScheme="green" fontSize="md">
+          <Text color="muted">Active Account:</Text>
+          <NativeSelect.Root w="200px">
+            <NativeSelect.Field
+              value={activeAccountId || ''}
+              onChange={(e) => setSelectedAccountId(e.target.value)}
+            >
+              {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </NativeSelect.Field>
+            <NativeSelect.Indicator />
+          </NativeSelect.Root>
+          <Badge bg="success" color="bg" fontSize="md">
             ${currentAccount.currentBalance.toFixed(2)}
           </Badge>
         </HStack>
         <HStack>
-          <Button leftIcon={<Plus size={16} />} onClick={handleAddPosition} colorScheme="orange">
+          <Button onClick={handleAddPosition} bg="accent" color="bg" _hover={{ bg: 'accentAlt', color: 'bg' }}>
+            <Plus size={16} />
             New Plan
           </Button>
         </HStack>
       </HStack>
 
       <Box>
-        {activePositions.length === 0 && <Text color="monokai.gray.300" textAlign="center">No active positions.</Text>}
-        <VStack align="stretch" spacing={4}>
+        {activePositions.length === 0 && <Text color="muted" textAlign="center">No active positions.</Text>}
+        <VStack align="stretch" gap={4}>
           {activePositions.map(pos => (
             <PositionCard
               key={pos.id}
@@ -101,8 +107,8 @@ export function PositionWorkspace () {
 
       {closedPositions.length > 0 && (
         <Box mt={8}>
-          <Text fontSize="lg" fontWeight="bold" mb={4} color="monokai.gray.300">History</Text>
-          <VStack align="stretch" spacing={4}>
+          <Text fontSize="lg" fontWeight="bold" mb={4} color="muted">History</Text>
+          <VStack align="stretch" gap={4}>
             {closedPositions.map(pos => (
               <ClosedPositionCard
                 key={pos.id}
@@ -160,22 +166,33 @@ function PositionCard ({ position, setups, accountBalance, onUpdate, onDelete }:
     : 0;
 
   return (
-    <Card borderTopWidth="4px" borderColor={position.side === 'long' ? 'monokai.green' : 'monokai.pink'}>
-      <CardBody>
+    <Card.Root
+      borderTopWidth="4px"
+      borderColor={position.side === 'long' ? 'success' : 'danger'}
+      bg="surface"
+      color="fg"
+    >
+      <Card.Body>
         <Grid templateColumns="repeat(12, 1fr)" gap={4}>
           {/* Header Row */}
           <GridItem colSpan={12}>
             <HStack justify="space-between">
               <HStack>
                 <HStack>
-                  <Text fontSize="sm" color={position.side === 'long' ? 'monokai.green' : 'monokai.pink'} fontWeight="bold">
+                  <Text
+                    fontSize="sm"
+                    color={position.side === 'long' ? 'success' : 'danger'}
+                    fontWeight="bold"
+                    w="5ch"
+                    textAlign="center"
+                  >
                     {position.side.toUpperCase()}
                   </Text>
-                  <Switch
-                    isChecked={position.side === 'short'}
-                    onChange={(e) => {
+                  <Switch.Root
+                    checked={position.side === 'short'}
+                    onCheckedChange={(e) => {
                       onUpdate(p => {
-                        p.side = e.target.checked ? 'short' : 'long';
+                        p.side = e.checked ? 'short' : 'long';
                         // Recalculate immediately on side switch as Risk/SL relationship inverts
                         const setup = setups.find(s => s.id === p.setupId);
                         if (setup) {
@@ -183,114 +200,125 @@ function PositionCard ({ position, setups, accountBalance, onUpdate, onDelete }:
                         }
                       });
                     }}
-                    colorScheme="pink"
+                    colorPalette="pink"
                     size="sm"
-                  />
+                  >
+                    <Switch.HiddenInput />
+                    <Switch.Control />
+                  </Switch.Root>
                 </HStack>
 
                 <Input
                   value={position.symbol}
                   onChange={e => onUpdate(p => p.symbol = e.target.value.toUpperCase())}
                   w="180px"
-                  placeholder="SYM"
+                  placeholder="SYMBOL"
                   fontWeight="bold"
                 />
-                <Select
-                  value={position.setupId}
-                  onChange={e => handleSetupChange(e.target.value)}
-                  w="160px"
-                  placeholder="Strategy"
-                >
-                  {setups.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </Select>
-                <Badge colorScheme={isOpened ? 'green' : 'purple'}>{position.status.toUpperCase()}</Badge>
+                <NativeSelect.Root w="160px">
+                  <NativeSelect.Field
+                    value={position.setupId}
+                    onChange={e => handleSetupChange(e.target.value)}
+                    placeholder="Strategy"
+                  >
+                    {setups.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </NativeSelect.Field>
+                  <NativeSelect.Indicator />
+                </NativeSelect.Root>
+                <Badge bg={isOpened ? 'success' : 'brand'} color="bg">{position.status.toUpperCase()}</Badge>
               </HStack>
               <HStack>
-                <Button size="sm" colorScheme="red" variant="outline" onClick={() => onUpdate(p => {
+                <Button size="sm" bg="danger" color="bg" _hover={{ bg: 'accentAlt', color: 'bg' }} onClick={() => onUpdate(p => {
                   p.status = 'closed';
                   p.closedAt = Date.now();
                 })}>
                   Close
                 </Button>
-                <IconButton aria-label="Delete" size="sm" icon={<Trash size={14} />} onClick={onDelete} variant="ghost" colorScheme="red" />
+                <IconButton aria-label="Delete" size="sm" onClick={onDelete} variant="ghost" color="danger">
+                  <Trash size={14} />
+                </IconButton>
               </HStack>
             </HStack>
           </GridItem>
 
-          <GridItem colSpan={12}><Divider my={2} borderColor="monokai.gray.200" /></GridItem>
+          <GridItem colSpan={12}><Separator my={2} borderColor="borderSubtle" /></GridItem>
 
           <GridItem colSpan={2}>
-            <FormControl>
-              <FormLabel fontSize="xs" color="monokai.gray.300">Stop Loss Price</FormLabel>
-              <NumberInput
-                value={position.stopLossPrice}
-                onChange={(_, v) => onUpdate(p => p.stopLossPrice = Number(v))}
-                onBlur={handleBlur}
+            <Field.Root>
+              <Field.Label fontSize="xs" color="muted">Risk Amount ($)</Field.Label>
+              <NumberInput.Root
+                value={position.riskAmount.toString()}
+                onValueChange={(e) => onUpdate(p => p.riskAmount = Number(e.value))}
               >
-                <NumberInputField />
-              </NumberInput>
-            </FormControl>
+                <NumberInput.Control />
+                <NumberInput.Input onBlur={handleBlur} />
+              </NumberInput.Root>
+            </Field.Root>
           </GridItem>
           <GridItem colSpan={2}>
-            <FormControl>
-              <FormLabel fontSize="xs" color="monokai.gray.300">Risk Amount ($)</FormLabel>
-              <NumberInput
-                value={position.riskAmount}
-                onChange={(_, v) => onUpdate(p => p.riskAmount = Number(v))}
-                onBlur={handleBlur}
+            <Field.Root>
+              <Field.Label fontSize="xs" color="muted">Stop Loss Price</Field.Label>
+              <NumberInput.Root
+                value={position.stopLossPrice.toString()}
+                onValueChange={(e) => onUpdate(p => p.stopLossPrice = Number(e.value))}
               >
-                <NumberInputField />
-              </NumberInput>
-            </FormControl>
+                <NumberInput.Control />
+                <NumberInput.Input onBlur={handleBlur} />
+              </NumberInput.Root>
+            </Field.Root>
           </GridItem>
           <GridItem colSpan={2}>
-            <FormControl>
-              <FormLabel fontSize="xs" color="monokai.gray.300">Leverage (x)</FormLabel>
-              <NumberInput
-                value={position.leverage || 1}
+            <Field.Root>
+              <Field.Label fontSize="xs" color="muted">Leverage (x)</Field.Label>
+              <NumberInput.Root
+                value={(position.leverage || 1).toString()}
                 min={1}
                 max={125}
-                onChange={(_, v) => onUpdate(p => p.leverage = Number(v) || 1)}
+                onValueChange={(e) => onUpdate(p => p.leverage = Number(e.value) || 1)}
               >
-                <NumberInputField />
-              </NumberInput>
-            </FormControl>
+                <NumberInput.Control />
+                <NumberInput.Input />
+              </NumberInput.Root>
+            </Field.Root>
+          </GridItem>
+
+          <GridItem colSpan={12}><Separator my={2} borderColor="borderSubtle" /></GridItem>
+
+          <GridItem colSpan={2}>
+            <Field.Root>
+              <Field.Label fontSize="xs" color="muted">Margin</Field.Label>
+              <Text fontSize="xl" fontWeight="bold" color="brand">
+                {marginEst > 0 ? `$${marginEst.toFixed(4)}` : '-'}
+              </Text>
+              <Text fontSize="sm" fontWeight="bold" color="fg">
+                {marginEst > 0 ? `${marginUsagePct.toFixed(4)}%` : '-'}
+              </Text>
+            </Field.Root>
           </GridItem>
           <GridItem colSpan={2}>
-            <FormControl>
-              <FormLabel fontSize="xs" color="monokai.gray.300">Est. Margin</FormLabel>
-              <Text fontSize="lg" fontWeight="bold" color="monokai.gray.300">
-                {marginEst > 0 ? `$${marginEst.toFixed(2)}` : '-'}
-              </Text>
-              <Text fontSize="xs" color="monokai.gray.300">
-                {marginEst > 0 ? `${marginUsagePct.toFixed(2)}%` : '-'}
-              </Text>
-            </FormControl>
+            <Field.Root>
+              <Field.Label fontSize="xs" color="muted">Notional Cost</Field.Label>
+              <Text fontSize="xl" fontWeight="bold" color="fg">{totalCost > 0 ? `$${totalCost.toFixed(4)}` : '-'}</Text>
+            </Field.Root>
           </GridItem>
           <GridItem colSpan={2}>
-            <FormControl>
-              <FormLabel fontSize="xs" color="monokai.gray.300">Pred. BE</FormLabel>
-              <Text fontSize="lg" fontWeight="bold" color="monokai.blue">{position.predictedBE?.toFixed(2) || '-'}</Text>
-            </FormControl>
+            <Field.Root>
+              <Field.Label fontSize="xs" color="muted">Total Size (Base Asset)</Field.Label>
+              <Text fontSize="xl" fontWeight="bold" color="fg">{totalSize > 0 ? totalSize.toFixed(4) : '-'}</Text>
+            </Field.Root>
           </GridItem>
-          <GridItem colSpan={4}>
-            <FormControl>
-              <FormLabel fontSize="xs" color="monokai.gray.300">Total Size (Base)</FormLabel>
-              <Text fontSize="lg" fontWeight="bold" color="monokai.gray.300">{totalSize > 0 ? totalSize.toFixed(4) : '-'}</Text>
-            </FormControl>
-          </GridItem>
-          <GridItem colSpan={4}>
-            <FormControl>
-              <FormLabel fontSize="xs" color="monokai.gray.300">Notional Cost</FormLabel>
-              <Text fontSize="lg" fontWeight="bold" color="monokai.gray.300">{totalCost > 0 ? `$${totalCost.toFixed(2)}` : '-'}</Text>
-            </FormControl>
+          <GridItem colSpan={2}>
+            <Field.Root>
+              <Field.Label fontSize="xs" color="muted">Final Break Even</Field.Label>
+              <Text fontSize="xl" fontWeight="bold" color="info">{position.predictedBE?.toFixed(2) || '-'}</Text>
+            </Field.Root>
           </GridItem>
 
 
           {/* Resizing Steps Table */}
           <GridItem colSpan={12}>
-            <Text fontSize="sm" fontWeight="bold" mb={2} color="monokai.yellow">Resizing Steps (Calculated)</Text>
-            <Grid templateColumns="repeat(14, 1fr)" gap={1} mb={2} fontSize="xs" color="monokai.gray.300">
+            <Text fontSize="sm" fontWeight="bold" mb={2} color="accentAlt">Resizing Steps (Calculated)</Text>
+            <Grid templateColumns="repeat(14, 1fr)" gap={1} mb={2} fontSize="xs" color="muted">
               <GridItem colSpan={1}>#</GridItem>
               <GridItem colSpan={3}>Price</GridItem>
               <GridItem colSpan={3}>Size</GridItem>
@@ -303,33 +331,45 @@ function PositionCard ({ position, setups, accountBalance, onUpdate, onDelete }:
               <Grid key={step.id} templateColumns="repeat(14, 1fr)" gap={1} mb={2} alignItems="center">
                 <GridItem colSpan={1} fontSize="sm">{idx + 1}</GridItem>
                 <GridItem colSpan={3}>
-                  <NumberInput size="sm" value={step.price} onChange={(_, v) => onUpdate(p => { p.steps[idx].price = Number(v); })} onBlur={handleBlur} isDisabled={step.isFilled}>
-                    <NumberInputField />
-                  </NumberInput>
+                  <NumberInput.Root
+                    size="sm"
+                    value={step.price.toString()}
+                    disabled={step.isFilled}
+                    onValueChange={(e) => onUpdate(p => { p.steps[idx].price = Number(e.value); })}
+                  >
+                    <NumberInput.Control />
+                    <NumberInput.Input onBlur={handleBlur} />
+                  </NumberInput.Root>
                 </GridItem>
                 <GridItem colSpan={3}>
                   <Text fontSize="sm" fontWeight="bold">{step.size.toFixed(4)}</Text>
                 </GridItem>
                 <GridItem colSpan={2}>
-                  <Text fontSize="xs" color="monokai.gray.300">${step.cost.toFixed(0)}</Text>
+                  <Text fontSize="xs" color="muted">${step.cost.toFixed(0)}</Text>
                 </GridItem>
                 <GridItem colSpan={2}>
-                  <Text fontSize="xs" color="monokai.blue">{step.predictedBE?.toFixed(2) || '-'}</Text>
+                  <Text fontSize="xs" color="info">{step.predictedBE?.toFixed(2) || '-'}</Text>
                 </GridItem>
                 <GridItem colSpan={2}>
-                  <Select size="xs" value={step.orderType} onChange={e => onUpdate(p => { p.steps[idx].orderType = e.target.value as OrderType; })}>
-                    <option value="taker">Taker</option>
-                    <option value="maker">Maker</option>
-                  </Select>
+                  <NativeSelect.Root size="xs">
+                    <NativeSelect.Field
+                      value={step.orderType}
+                      onChange={e => onUpdate(p => { p.steps[idx].orderType = e.target.value as OrderType; })}
+                    >
+                      <option value="taker">Taker</option>
+                      <option value="maker">Maker</option>
+                    </NativeSelect.Field>
+                    <NativeSelect.Indicator />
+                  </NativeSelect.Root>
                 </GridItem>
                 <GridItem colSpan={1}>
-                  <Checkbox
-                    isChecked={step.isFilled}
-                    colorScheme="green"
-                    onChange={(e) => onUpdate(p => {
-                      p.steps[idx].isFilled = e.target.checked;
+                  <Checkbox.Root
+                    checked={step.isFilled}
+                    colorPalette="green"
+                    onCheckedChange={(e) => onUpdate(p => {
+                      p.steps[idx].isFilled = !!e.checked;
                       // Logic: If any step is filled, status must be OPENED
-                      if (e.target.checked && p.status === 'planning') {
+                      if (e.checked && p.status === 'planning') {
                         p.status = 'opened';
                       }
 
@@ -338,14 +378,17 @@ function PositionCard ({ position, setups, accountBalance, onUpdate, onDelete }:
                         p.recalculateRiskDriven(setup, accountBalance);
                       }
                     })}
-                  />
+                  >
+                    <Checkbox.HiddenInput />
+                    <Checkbox.Control />
+                  </Checkbox.Root>
                 </GridItem>
               </Grid>
             ))}
           </GridItem>
         </Grid>
-      </CardBody>
-    </Card>
+      </Card.Body>
+    </Card.Root>
   );
 }
 
@@ -358,23 +401,39 @@ function ClosedPositionCard ({ position, onUpdate, onDelete }: { position: Posit
   };
 
   return (
-    <Card borderLeftWidth="4px" borderColor={position.pnl && position.pnl > 0 ? 'monokai.green' : 'monokai.pink'} bg="monokai.gray.900">
-      <CardBody py={2}>
+    <Card.Root
+      borderLeftWidth="4px"
+      borderColor={position.pnl && position.pnl > 0 ? 'success' : 'danger'}
+      bg="surfaceAlt"
+      color="fg"
+    >
+      <Card.Body py={2}>
         <HStack justify="space-between">
-          <HStack spacing={4}>
+          <HStack gap={4}>
             <Text fontWeight="bold">{position.symbol}</Text>
-            <Text fontSize="sm" color="monokai.gray.300">{new Date(position.createdAt).toLocaleDateString()}</Text>
+            <Text fontSize="sm" color="muted">{new Date(position.createdAt).toLocaleDateString()}</Text>
             <Badge>{position.setupId ? 'Strategy Executed' : 'Manual'}</Badge>
           </HStack>
           <HStack>
-            <Text fontSize="sm" color="monokai.gray.300">Final PnL:</Text>
-            <NumberInput size="sm" w="120px" value={position.pnl} onChange={(_, v) => handlePnLChange(Number(v))}>
-              <NumberInputField color={position.pnl && position.pnl > 0 ? 'monokai.green' : 'monokai.pink'} fontWeight="bold" />
-            </NumberInput>
-            <IconButton aria-label="Delete" icon={<Trash size={14} />} size="sm" variant="ghost" onClick={onDelete} />
+            <Text fontSize="sm" color="muted">Final PnL:</Text>
+            <NumberInput.Root
+              size="sm"
+              w="120px"
+              value={position.pnl?.toString() ?? ''}
+              onValueChange={(e) => handlePnLChange(Number(e.value))}
+            >
+              <NumberInput.Control />
+              <NumberInput.Input
+                color={position.pnl && position.pnl > 0 ? 'success' : 'danger'}
+                fontWeight="bold"
+              />
+            </NumberInput.Root>
+            <IconButton aria-label="Delete" size="sm" variant="ghost" onClick={onDelete}>
+              <Trash size={14} />
+            </IconButton>
           </HStack>
         </HStack>
-      </CardBody>
-    </Card>
+      </Card.Body>
+    </Card.Root>
   );
 }

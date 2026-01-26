@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, Table, Thead, Tbody, Tr, Th, Td, Input, NumberInput, NumberInputField, VStack, HStack, Card, CardBody, Heading, IconButton } from '@chakra-ui/react';
+import { Button, Table, Input, NumberInput, VStack, HStack, Card, Heading, IconButton, Flex } from '@chakra-ui/react';
 import { Trash, Plus, Save } from 'lucide-react';
 import { usePlanner } from '../hooks/usePlanner';
 import { AccountModel } from '../models/AccountModel';
@@ -47,86 +47,106 @@ export function AccountManager () {
   };
 
   return (
-    <VStack spacing={6} align="stretch">
+    <VStack gap={6} align="stretch">
       <Flex justify="space-between" align="center">
-        <Heading size="md" color="monokai.orange">Manage Accounts</Heading>
-        <Button leftIcon={<Plus size={16} />} onClick={handleCreate}>New Account</Button>
+        <Heading size="md" color="accent">Manage Accounts</Heading>
+        <Button onClick={handleCreate}>
+          <Plus size={16} />
+          New Account
+        </Button>
       </Flex>
 
-      <Card>
-        <CardBody>
-          <Table variant="simple">
-            <Thead>
-              <Tr>
-                <Th color="monokai.gray.300">Name</Th>
-                <Th color="monokai.gray.300" isNumeric>Initial Balance</Th>
-                <Th color="monokai.gray.300" isNumeric>Current Balance</Th>
-                <Th color="monokai.gray.300" isNumeric>Taker Fee %</Th>
-                <Th color="monokai.gray.300" isNumeric>Maker Fee %</Th>
-                <Th color="monokai.gray.300">Actions</Th>
-              </Tr>
-            </Thead>
-            <Tbody>
+      <Card.Root bg="surface" color="fg" borderColor="border">
+        <Card.Body>
+          <Table.Root variant="outline">
+            <Table.Header bg="surface">
+              <Table.Row>
+                <Table.ColumnHeader color="muted">Name</Table.ColumnHeader>
+                <Table.ColumnHeader color="muted" textAlign="end">Initial Balance</Table.ColumnHeader>
+                <Table.ColumnHeader color="muted" textAlign="end">Current Balance</Table.ColumnHeader>
+                <Table.ColumnHeader color="muted" textAlign="end">Taker Fee %</Table.ColumnHeader>
+                <Table.ColumnHeader color="muted" textAlign="end">Maker Fee %</Table.ColumnHeader>
+                <Table.ColumnHeader color="muted">Actions</Table.ColumnHeader>
+              </Table.Row>
+            </Table.Header>
+            <Table.Body>
               {accounts.map(account => (
-                <Tr key={account.id}>
-                  <Td>
+                <Table.Row key={account.id}>
+                  <Table.Cell>
                     {isEditing === account.id ? (
                       <Input
                         value={editData.name}
                         onChange={e => setEditData({ ...editData, name: e.target.value })}
                       />
                     ) : account.name}
-                  </Td>
-                  <Td isNumeric>
+                  </Table.Cell>
+                  <Table.Cell textAlign="end">
                     {isEditing === account.id ? (
-                      <NumberInput value={editData.initialBalance} onChange={(_, v) => setEditData({ ...editData, initialBalance: v })}>
-                        <NumberInputField />
-                      </NumberInput>
+                      <NumberInput.Root
+                        value={editData.initialBalance?.toString() ?? ''}
+                        onValueChange={(e) => setEditData({ ...editData, initialBalance: Number(e.value) })}
+                      >
+                        <NumberInput.Control />
+                        <NumberInput.Input />
+                      </NumberInput.Root>
                     ) : account.initialBalance.toFixed(2)}
-                  </Td>
-                  <Td isNumeric color={account.currentBalance >= account.initialBalance ? 'monokai.green' : 'monokai.pink'}>
+                  </Table.Cell>
+                  <Table.Cell textAlign="end" color={account.currentBalance >= account.initialBalance ? 'success' : 'danger'}>
                     {account.currentBalance.toFixed(2)}
-                  </Td>
-                  <Td isNumeric>
+                  </Table.Cell>
+                  <Table.Cell textAlign="end">
                     {isEditing === account.id ? (
-                      <NumberInput value={editData.takerFee} step={0.0001} onChange={(_, v) => setEditData({ ...editData, takerFee: v })}>
-                        <NumberInputField />
-                      </NumberInput>
+                      <NumberInput.Root
+                        value={editData.takerFee?.toString() ?? ''}
+                        step={0.0001}
+                        onValueChange={(e) => setEditData({ ...editData, takerFee: Number(e.value) })}
+                      >
+                        <NumberInput.Control />
+                        <NumberInput.Input />
+                      </NumberInput.Root>
                     ) : (account.takerFee * 100).toFixed(4) + '%'}
-                  </Td>
-                  <Td isNumeric>
+                  </Table.Cell>
+                  <Table.Cell textAlign="end">
                     {isEditing === account.id ? (
-                      <NumberInput value={editData.makerFee} step={0.0001} onChange={(_, v) => setEditData({ ...editData, makerFee: v })}>
-                        <NumberInputField />
-                      </NumberInput>
+                      <NumberInput.Root
+                        value={editData.makerFee?.toString() ?? ''}
+                        step={0.0001}
+                        onValueChange={(e) => setEditData({ ...editData, makerFee: Number(e.value) })}
+                      >
+                        <NumberInput.Control />
+                        <NumberInput.Input />
+                      </NumberInput.Root>
                     ) : (account.makerFee * 100).toFixed(4) + '%'}
-                  </Td>
-                  <Td>
-                    <HStack>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <HStack gap={2}>
                       {isEditing === account.id ? (
-                        <Button size="sm" leftIcon={<Save size={14} />} onClick={saveEdit}>Save</Button>
+                        <Button size="sm" onClick={saveEdit}>
+                          <Save size={14} />
+                          Save
+                        </Button>
                       ) : (
-                        <Button size="sm" variant="ghost" onClick={() => startEdit(account)}>Edit</Button>
+                        <Button size="sm" variant="ghost" color="accent"
+                          onClick={() => startEdit(account)}>Edit</Button>
                       )}
                       <IconButton
                         aria-label="Delete"
-                        icon={<Trash size={14} />}
                         size="sm"
-                        colorScheme="red"
+                        color="danger"
                         variant="ghost"
                         onClick={() => deleteAccount(account.id)}
-                        isDisabled={accounts.length === 1} // Prevent deleting last account
-                      />
+                        disabled={accounts.length === 1} // Prevent deleting last account
+                      >
+                        <Trash size={14} />
+                      </IconButton>
                     </HStack>
-                  </Td>
-                </Tr>
+                  </Table.Cell>
+                </Table.Row>
               ))}
-            </Tbody>
-          </Table>
-        </CardBody>
-      </Card>
+            </Table.Body>
+          </Table.Root>
+        </Card.Body>
+      </Card.Root>
     </VStack>
   );
 }
-
-import { Flex } from '@chakra-ui/react';

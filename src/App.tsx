@@ -1,14 +1,14 @@
-import { ChakraProvider, Box, Flex, Heading, Tabs, TabList, TabPanels, Tab, TabPanel, Button, useToast } from '@chakra-ui/react';
+import { ChakraProvider, Box, Flex, Heading, Tabs, Button } from '@chakra-ui/react';
 import system from './theme/monokai';
 import { Overview } from './components/Overview';
 import { AccountManager } from './components/AccountManager';
 import { SetupManager } from './components/SetupManager';
 import { PositionWorkspace } from './components/PositionWorkspace';
 import { usePlanner } from './hooks/usePlanner';
+import { Toaster, toaster } from './components/ui/toaster';
 
 function App () {
   const { exportData, importData, clearAllData, isLoading } = usePlanner();
-  const toast = useToast();
   const showDevTools = new URLSearchParams(window.location.search).has('dev');
 
   const handleExport = () => {
@@ -31,9 +31,9 @@ function App () {
         const text = await file.text();
         try {
           await importData(text);
-          toast({ title: 'Data Imported', status: 'success' });
+          toaster.create({ title: 'Data Imported', type: 'success' });
         } catch {
-          toast({ title: 'Import Failed', status: 'error' });
+          toaster.create({ title: 'Import Failed', type: 'error' });
         }
       }
     };
@@ -47,8 +47,8 @@ function App () {
   if (isLoading) {
     return (
       <ChakraProvider value={system}>
-        <Box minH="100vh" bg="monokai.bg" color="monokai.fg" display="flex" alignItems="center" justifyContent="center">
-          <Heading size="md" color="monokai.gray.100">Initializing Terminal...</Heading>
+        <Box minH="100vh" bg="bg" color="fg" display="flex" alignItems="center" justifyContent="center">
+          <Heading size="md" color="surface">Initializing ...</Heading>
         </Box>
       </ChakraProvider>
     );
@@ -56,43 +56,91 @@ function App () {
 
   return (
     <ChakraProvider value={system}>
-      <Box minH="100vh" bg="monokai.bg" color="monokai.fg" p={4}>
+      <Toaster />
+      <Box minH="100vh" bg="bg" color="fg" p={4}>
         <Flex justify="space-between" align="center" mb={6}>
-          <Heading size="lg" color="monokai.yellow">Termial Position Planner</Heading>
+          <Heading size="lg" color="brand">Position Planner</Heading>
           <Flex gap={2}>
             {showDevTools && (
-              <Button size="sm" variant="outline" colorScheme="red" onClick={handleClearData}>
+              <Button
+                size="sm"
+                variant="solid"
+                bg="danger"
+                color="bg"
+                _hover={{ bg: 'accentAlt', color: 'bg' }}
+                onClick={handleClearData}
+              >
                 Clear Data
               </Button>
             )}
-            <Button size="sm" variant="outline" onClick={handleExport}>Export JSON</Button>
-            <Button size="sm" variant="outline" onClick={handleImport}>Import JSON</Button>
+            <Button
+              size="sm"
+              variant="solid"
+              bg="success"
+              color="bg"
+              _hover={{ bg: 'accentAlt', color: 'bg' }}
+              onClick={handleExport}
+            >
+              Export JSON
+            </Button>
+            <Button
+              size="sm"
+              variant="solid"
+              bg="danger"
+              color="bg"
+              _hover={{ bg: 'accentAlt', color: 'bg' }}
+              onClick={handleImport}
+            >
+              Import JSON
+            </Button>
           </Flex>
         </Flex>
 
-        <Tabs variant="enclosed" colorScheme="orange">
-          <TabList borderColor="monokai.gray.300">
-            <Tab _selected={{ color: 'monokai.pink', borderColor: 'monokai.pink', borderBottomColor: 'monokai.bg' }}>Overview</Tab>
-            <Tab _selected={{ color: 'monokai.pink', borderColor: 'monokai.pink', borderBottomColor: 'monokai.bg' }}>Position Workspace</Tab>
-            <Tab _selected={{ color: 'monokai.pink', borderColor: 'monokai.pink', borderBottomColor: 'monokai.bg' }}>Accounts</Tab>
-            <Tab _selected={{ color: 'monokai.pink', borderColor: 'monokai.pink', borderBottomColor: 'monokai.bg' }}>Setups</Tab>
-          </TabList>
+        <Tabs.Root defaultValue="overview" variant="outline">
+          <Tabs.List>
+            <Tabs.Trigger
+              value="overview"
+              color="muted"
+              _selected={{ color: 'accentAlt', borderColor: 'muted', borderBottomColor: 'bg' }}
+            >
+              Overview
+            </Tabs.Trigger>
+            <Tabs.Trigger
+              value="workspace"
+              color="muted"
+              _selected={{ color: 'accentAlt', borderColor: 'muted', borderBottomColor: 'bg' }}
+            >
+              Position Workspace
+            </Tabs.Trigger>
+            <Tabs.Trigger
+              value="accounts"
+              color="muted"
+              _selected={{ color: 'accentAlt', borderColor: 'muted', borderBottomColor: 'bg' }}
+            >
+              Accounts
+            </Tabs.Trigger>
+            <Tabs.Trigger
+              value="setups"
+              color="muted"
+              _selected={{ color: 'accentAlt', borderColor: 'muted', borderBottomColor: 'bg' }}
+            >
+              Setups
+            </Tabs.Trigger>
+          </Tabs.List>
 
-          <TabPanels>
-            <TabPanel>
-              <Overview />
-            </TabPanel>
-            <TabPanel>
-              <PositionWorkspace />
-            </TabPanel>
-            <TabPanel>
-              <AccountManager />
-            </TabPanel>
-            <TabPanel>
-              <SetupManager />
-            </TabPanel>
-          </TabPanels>
-        </Tabs>
+          <Tabs.Content value="overview">
+            <Overview />
+          </Tabs.Content>
+          <Tabs.Content value="workspace">
+            <PositionWorkspace />
+          </Tabs.Content>
+          <Tabs.Content value="accounts">
+            <AccountManager />
+          </Tabs.Content>
+          <Tabs.Content value="setups">
+            <SetupManager />
+          </Tabs.Content>
+        </Tabs.Root>
       </Box>
     </ChakraProvider>
   );

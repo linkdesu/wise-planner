@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, Table, Thead, Tbody, Tr, Th, Td, Input, VStack, HStack, Card, CardBody, Heading, IconButton, Text, Tooltip, Flex, Box } from '@chakra-ui/react';
+import { Button, Table, Input, VStack, HStack, Card, Heading, IconButton, Text, Tooltip, Flex, Box } from '@chakra-ui/react';
 import { Trash, Plus, Save, Info } from 'lucide-react';
 import { usePlanner } from '../hooks/usePlanner';
 import { SetupModel } from '../models/SetupModel';
@@ -54,45 +54,55 @@ export function SetupManager () {
   };
 
   return (
-    <VStack spacing={6} align="stretch">
+    <VStack gap={6} align="stretch">
       <Flex justify="space-between" align="center">
-        <Heading size="md" color="monokai.purple">Resizing Setups</Heading>
-        <Button leftIcon={<Plus size={16} />} onClick={handleCreate}>New Setup</Button>
+        <Heading size="md" color="accent">Resizing Setups</Heading>
+        <Button onClick={handleCreate}>
+          <Plus size={16} />
+          New Setup
+        </Button>
       </Flex>
 
-      <Card>
-        <CardBody>
-          <Table variant="simple">
-            <Thead>
-              <Tr>
-                <Th color="monokai.gray.300">Strategy Name</Th>
-                <Th color="monokai.gray.300" isNumeric>Steps</Th>
-                <Th color="monokai.gray.300">
-                  <HStack>
+      <Card.Root bg="surface" color="fg" borderColor="border">
+        <Card.Body>
+          <Table.Root variant="outline">
+            <Table.Header>
+              <Table.Row>
+                <Table.ColumnHeader color="muted">Strategy Name</Table.ColumnHeader>
+                <Table.ColumnHeader color="muted" textAlign="center">Steps</Table.ColumnHeader>
+                <Table.ColumnHeader color="muted">
+                  <HStack gap={2} justify="center">
                     <Text>Cost Ratios</Text>
-                    <Tooltip label="Comma separated values relative to each other (e.g. '1, 1, 2' means 25%, 25%, 50% of notional cost)">
-                      <Info size={14} />
-                    </Tooltip>
+                    <Tooltip.Root>
+                      <Tooltip.Trigger asChild>
+                        <Box as="span" display="inline-flex">
+                          <Info size={14} />
+                        </Box>
+                      </Tooltip.Trigger>
+                      <Tooltip.Content>
+                        Comma separated values relative to each other (e.g. '1, 1, 2' means 25%, 25%, 50% of notional cost)
+                      </Tooltip.Content>
+                    </Tooltip.Root>
                   </HStack>
-                </Th>
-                <Th color="monokai.gray.300">Actions</Th>
-              </Tr>
-            </Thead>
-            <Tbody>
+                </Table.ColumnHeader>
+                <Table.ColumnHeader color="muted">Actions</Table.ColumnHeader>
+              </Table.Row>
+            </Table.Header>
+            <Table.Body>
               {setups.map(setup => (
-                <Tr key={setup.id}>
-                  <Td>
+                <Table.Row key={setup.id}>
+                  <Table.Cell>
                     {isEditing === setup.id ? (
                       <Input
                         value={editData?.name}
                         onChange={e => setEditData(prev => prev ? { ...prev, name: e.target.value } : null)}
                       />
                     ) : setup.name}
-                  </Td>
-                  <Td isNumeric>
+                  </Table.Cell>
+                  <Table.Cell textAlign="center">
                     {setup.resizingTimes}
-                  </Td>
-                  <Td>
+                  </Table.Cell>
+                  <Table.Cell textAlign="center">
                     {isEditing === setup.id ? (
                       <Input
                         value={editData?.ratiosStr}
@@ -100,34 +110,38 @@ export function SetupManager () {
                         placeholder="e.g. 1, 1, 2"
                       />
                     ) : setup.resizingRatios.join(' : ')}
-                  </Td>
-                  <Td>
-                    <HStack>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <HStack gap={2}>
                       {isEditing === setup.id ? (
-                        <Button size="sm" leftIcon={<Save size={14} />} onClick={saveEdit}>Save</Button>
+                        <Button size="sm" onClick={saveEdit}>
+                          <Save size={14} />
+                          Save
+                        </Button>
                       ) : (
-                        <Button size="sm" variant="ghost" onClick={() => startEdit(setup)}>Edit</Button>
+                        <Button size="sm" variant="ghost" color="accent" onClick={() => startEdit(setup)}>Edit</Button>
                       )}
                       <IconButton
                         aria-label="Delete"
-                        icon={<Trash size={14} />}
                         size="sm"
-                        colorScheme="red"
+                        color="danger"
                         variant="ghost"
                         onClick={() => deleteSetup(setup.id)}
-                        isDisabled={setups.length === 1}
-                      />
+                        disabled={setups.length === 1}
+                      >
+                        <Trash size={14} />
+                      </IconButton>
                     </HStack>
-                  </Td>
-                </Tr>
+                  </Table.Cell>
+                </Table.Row>
               ))}
-            </Tbody>
-          </Table>
-        </CardBody>
-      </Card>
+            </Table.Body>
+          </Table.Root>
+        </Card.Body>
+      </Card.Root>
 
-      <Box p={4} bg="monokai.gray.100" borderRadius="md" fontSize="sm" color="monokai.gray.300">
-        <Text fontWeight="bold" mb={2} color="monokai.yellow">Tip: Understanding Cost Ratios</Text>
+      <Box p={4} bg="surface" borderRadius="md" fontSize="sm" color="muted" borderColor="border" borderWidth="1px">
+        <Text fontWeight="bold" mb={2} color="accentAlt">Tip: Understanding Cost Ratios</Text>
         <Text>Ratios determine how your total notional cost is distributed across entries.</Text>
         <Text>Example: <b>1 : 1 : 2</b> means the first entry uses 1/4 of cost, second uses 1/4, and third uses 2/4 (50%).</Text>
       </Box>

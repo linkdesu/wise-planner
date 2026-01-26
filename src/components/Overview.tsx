@@ -1,4 +1,4 @@
-import { Grid, GridItem, Card, CardBody, Text, Heading, VStack, Stat, StatLabel, StatNumber, StatHelpText, StatArrow, Table, Thead, Tbody, Tr, Th, Td, Badge } from '@chakra-ui/react';
+import { Grid, GridItem, Card, Text, Heading, VStack, Stat, Table, Badge } from '@chakra-ui/react';
 import { usePlanner } from '../hooks/usePlanner';
 
 export function Overview () {
@@ -21,94 +21,94 @@ export function Overview () {
     : 0;
 
   return (
-    <VStack spacing={6} align="stretch">
-      <Heading size="md" color="monokai.yellow">Dashboard Overview</Heading>
+    <VStack gap={6} align="stretch">
+      <Heading size="md" color="accent" h="40px" display="flex" alignItems="center">Dashboard Overview</Heading>
 
       <Grid templateColumns={{ base: "1fr", md: "repeat(4, 1fr)" }} gap={6}>
         <GridItem>
-          <Card bg="monokai.gray.100" borderColor="monokai.pink">
-            <CardBody>
-              <Stat>
-                <StatLabel color="monokai.gray.300">Total Equity</StatLabel>
-                <StatNumber color="monokai.fg">${totalEquity.toLocaleString(undefined, { minimumFractionDigits: 2 })}</StatNumber>
-                <StatHelpText>
-                  <StatArrow type={totalPnL >= 0 ? 'increase' : 'decrease'} />
+          <Card.Root bg="surface" borderColor="danger" color="fg">
+            <Card.Body>
+              <Stat.Root>
+                <Stat.Label color="muted">Total Equity</Stat.Label>
+                <Stat.ValueText color="fg">${totalEquity.toLocaleString(undefined, { minimumFractionDigits: 2 })}</Stat.ValueText>
+                <Stat.HelpText>
+                  {totalPnL >= 0 ? <Stat.UpIndicator /> : <Stat.DownIndicator />}
                   {pnlPercent.toFixed(2)}%
-                </StatHelpText>
-              </Stat>
-            </CardBody>
-          </Card>
+                </Stat.HelpText>
+              </Stat.Root>
+            </Card.Body>
+          </Card.Root>
         </GridItem>
         <GridItem>
-          <Card bg="monokai.gray.100">
-            <CardBody>
-              <Stat>
-                <StatLabel color="monokai.gray.300">Total PnL</StatLabel>
-                <StatNumber color={totalPnL >= 0 ? 'monokai.green' : 'monokai.pink'}>
+          <Card.Root bg="surface" color="fg" borderColor="border">
+            <Card.Body>
+              <Stat.Root>
+                <Stat.Label color="muted">Total PnL</Stat.Label>
+                <Stat.ValueText color={totalPnL >= 0 ? 'success' : 'danger'}>
                   {totalPnL >= 0 ? '+' : ''}${totalPnL.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                </StatNumber>
-              </Stat>
-            </CardBody>
-          </Card>
+                </Stat.ValueText>
+              </Stat.Root>
+            </Card.Body>
+          </Card.Root>
         </GridItem>
         <GridItem>
-          <Card bg="monokai.gray.100">
-            <CardBody>
-              <Stat>
-                <StatLabel color="monokai.gray.300">Active Positions</StatLabel>
-                <StatNumber color="monokai.blue">{activePositions.length}</StatNumber>
-              </Stat>
-            </CardBody>
-          </Card>
+          <Card.Root bg="surface" color="fg" borderColor="border">
+            <Card.Body>
+              <Stat.Root>
+                <Stat.Label color="muted">Active Positions</Stat.Label>
+                <Stat.ValueText color="info">{activePositions.length}</Stat.ValueText>
+              </Stat.Root>
+            </Card.Body>
+          </Card.Root>
         </GridItem>
         <GridItem>
-          <Card bg="monokai.gray.100">
-            <CardBody>
-              <Stat>
-                <StatLabel color="monokai.gray.300">Win Rate</StatLabel>
-                <StatNumber color="monokai.orange">{winRate.toFixed(1)}%</StatNumber>
-                <StatHelpText color="monokai.gray.300">
+          <Card.Root bg="surface" color="fg" borderColor="border">
+            <Card.Body>
+              <Stat.Root>
+                <Stat.Label color="muted">Win Rate</Stat.Label>
+                <Stat.ValueText color="warning">{winRate.toFixed(1)}%</Stat.ValueText>
+                <Stat.HelpText color="muted">
                   {winPositions.length} / {allPositions.filter(p => p.status === 'closed').length} trades
-                </StatHelpText>
-              </Stat>
-            </CardBody>
-          </Card>
+                </Stat.HelpText>
+              </Stat.Root>
+            </Card.Body>
+          </Card.Root>
         </GridItem>
       </Grid>
 
-      <Heading size="sm" mt={4} color="monokai.blue">Recent Active Positions</Heading>
-      <Card>
-        <CardBody>
+      <Heading size="sm" mt={4} color="info">Recent Active Positions</Heading>
+      <Card.Root bg="surface" color="fg" borderColor="border">
+        <Card.Body>
           {activePositions.length === 0 ? (
-            <Text color="monokai.gray.300">No active positions. Go to Workspace to plan one.</Text>
+            <Text color="muted">No active positions. Go to Workspace to plan one.</Text>
           ) : (
-            <Table variant="simple" size="sm">
-              <Thead>
-                <Tr>
-                  <Th>Symbol</Th>
-                  <Th>Account</Th>
-                  <Th>Status</Th>
-                  <Th isNumeric>Current BE</Th>
-                  <Th isNumeric>Risk</Th>
-                </Tr>
-              </Thead>
-              <Tbody>
+            <Table.Root variant="outline" size="sm">
+              <Table.Header>
+                <Table.Row>
+                  <Table.ColumnHeader>Symbol</Table.ColumnHeader>
+                  <Table.ColumnHeader>Account</Table.ColumnHeader>
+                  <Table.ColumnHeader>Status</Table.ColumnHeader>
+                  <Table.ColumnHeader textAlign="end">Current BE</Table.ColumnHeader>
+                  <Table.ColumnHeader textAlign="end">Risk</Table.ColumnHeader>
+                </Table.Row>
+              </Table.Header>
+              <Table.Body>
                 {activePositions.map(p => (
-                  <Tr key={p.id}>
-                    <Td fontWeight="bold" color="monokai.yellow">{p.symbol}</Td>
-                    <Td>{p.accountName}</Td>
-                    <Td>
-                      <Badge colorScheme={p.status === 'planning' ? 'purple' : 'green'}>{p.status}</Badge>
-                    </Td>
-                    <Td isNumeric>{p.currentBE?.toFixed(2) || '-'}</Td>
-                    <Td isNumeric>${p.riskAmount}</Td>
-                  </Tr>
+                  <Table.Row key={p.id}>
+                    <Table.Cell fontWeight="bold" color="accentAlt">{p.symbol}</Table.Cell>
+                    <Table.Cell>{p.accountName}</Table.Cell>
+                    <Table.Cell>
+                      <Badge bg={p.status === 'planning' ? 'brand' : 'success'} color="bg">{p.status}</Badge>
+                    </Table.Cell>
+                    <Table.Cell textAlign="end">{p.currentBE?.toFixed(2) || '-'}</Table.Cell>
+                    <Table.Cell textAlign="end">${p.riskAmount}</Table.Cell>
+                  </Table.Row>
                 ))}
-              </Tbody>
-            </Table>
+              </Table.Body>
+            </Table.Root>
           )}
-        </CardBody>
-      </Card>
+        </Card.Body>
+      </Card.Root>
     </VStack>
   );
 }

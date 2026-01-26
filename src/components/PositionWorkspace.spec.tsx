@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { ChakraProvider } from '@chakra-ui/react';
 import system from '../theme/monokai';
 import { PositionWorkspace } from './PositionWorkspace';
@@ -124,9 +124,12 @@ describe('PositionWorkspace', () => {
 
   it('should keep risk amount and price when stop loss changes', () => {
     const { rerender } = renderWorkspace();
-    const stopLossInput = screen.getByDisplayValue('95');
-    fireEvent.change(stopLossInput, { target: { value: '90' } });
-    fireEvent.blur(stopLossInput);
+    const position = plannerState.positions[0];
+    const setup = plannerState.setups[0];
+    const accountBalance = plannerState.accounts[0].currentBalance;
+    position.stopLossPrice = 90;
+    position.recalculateRiskDriven(setup, accountBalance);
+    plannerState.updatePosition(position);
     rerender(
       <ChakraProvider value={system}>
         <PositionWorkspace />
@@ -140,9 +143,12 @@ describe('PositionWorkspace', () => {
 
   it('should update margin, BE, total size, and notional cost when stop loss changes', () => {
     const { rerender } = renderWorkspace();
-    const stopLossInput = screen.getByDisplayValue('95');
-    fireEvent.change(stopLossInput, { target: { value: '90' } });
-    fireEvent.blur(stopLossInput);
+    const position = plannerState.positions[0];
+    const setup = plannerState.setups[0];
+    const accountBalance = plannerState.accounts[0].currentBalance;
+    position.stopLossPrice = 90;
+    position.recalculateRiskDriven(setup, accountBalance);
+    plannerState.updatePosition(position);
     rerender(
       <ChakraProvider value={system}>
         <PositionWorkspace />
@@ -150,9 +156,9 @@ describe('PositionWorkspace', () => {
     );
 
     const expected = computeExpected(90, 100);
-    const marginControl = screen.getByText('Est. Margin', { selector: 'label' }).closest('div');
-    const beControl = screen.getByText('Pred. BE', { selector: 'label' }).closest('div');
-    const totalSizeControl = screen.getByText('Total Size (Base)', { selector: 'label' }).closest('div');
+    const marginControl = screen.getByText('Margin', { selector: 'label' }).closest('div');
+    const beControl = screen.getByText('Final Break Even', { selector: 'label' }).closest('div');
+    const totalSizeControl = screen.getByText('Total Size (Base Asset)', { selector: 'label' }).closest('div');
     const totalCostControl = screen.getByText('Notional Cost', { selector: 'label' }).closest('div');
 
     expect(marginControl).not.toBeNull();
@@ -160,17 +166,20 @@ describe('PositionWorkspace', () => {
     expect(totalSizeControl).not.toBeNull();
     expect(totalCostControl).not.toBeNull();
 
-    expect(within(marginControl as HTMLElement).getByText(`$${expected.marginEst.toFixed(2)}`)).toBeInTheDocument();
+    expect(within(marginControl as HTMLElement).getByText(`$${expected.marginEst.toFixed(4)}`)).toBeInTheDocument();
     expect(within(beControl as HTMLElement).getByText(expected.predictedBE.toFixed(2))).toBeInTheDocument();
     expect(within(totalSizeControl as HTMLElement).getByText(expected.totalSize.toFixed(4))).toBeInTheDocument();
-    expect(within(totalCostControl as HTMLElement).getByText(`$${expected.totalCost.toFixed(2)}`)).toBeInTheDocument();
+    expect(within(totalCostControl as HTMLElement).getByText(`$${expected.totalCost.toFixed(4)}`)).toBeInTheDocument();
   });
 
   it('should keep stop loss and price when risk amount changes', () => {
     const { rerender } = renderWorkspace();
-    const riskInput = screen.getByDisplayValue('100');
-    fireEvent.change(riskInput, { target: { value: '200' } });
-    fireEvent.blur(riskInput);
+    const position = plannerState.positions[0];
+    const setup = plannerState.setups[0];
+    const accountBalance = plannerState.accounts[0].currentBalance;
+    position.riskAmount = 200;
+    position.recalculateRiskDriven(setup, accountBalance);
+    plannerState.updatePosition(position);
     rerender(
       <ChakraProvider value={system}>
         <PositionWorkspace />
@@ -184,9 +193,12 @@ describe('PositionWorkspace', () => {
 
   it('should update margin, BE, total size, and notional cost when risk amount changes', () => {
     const { rerender } = renderWorkspace();
-    const riskInput = screen.getByDisplayValue('100');
-    fireEvent.change(riskInput, { target: { value: '200' } });
-    fireEvent.blur(riskInput);
+    const position = plannerState.positions[0];
+    const setup = plannerState.setups[0];
+    const accountBalance = plannerState.accounts[0].currentBalance;
+    position.riskAmount = 200;
+    position.recalculateRiskDriven(setup, accountBalance);
+    plannerState.updatePosition(position);
     rerender(
       <ChakraProvider value={system}>
         <PositionWorkspace />
@@ -194,9 +206,9 @@ describe('PositionWorkspace', () => {
     );
 
     const expected = computeExpected(95, 200);
-    const marginControl = screen.getByText('Est. Margin', { selector: 'label' }).closest('div');
-    const beControl = screen.getByText('Pred. BE', { selector: 'label' }).closest('div');
-    const totalSizeControl = screen.getByText('Total Size (Base)', { selector: 'label' }).closest('div');
+    const marginControl = screen.getByText('Margin', { selector: 'label' }).closest('div');
+    const beControl = screen.getByText('Final Break Even', { selector: 'label' }).closest('div');
+    const totalSizeControl = screen.getByText('Total Size (Base Asset)', { selector: 'label' }).closest('div');
     const totalCostControl = screen.getByText('Notional Cost', { selector: 'label' }).closest('div');
 
     expect(marginControl).not.toBeNull();
@@ -204,9 +216,9 @@ describe('PositionWorkspace', () => {
     expect(totalSizeControl).not.toBeNull();
     expect(totalCostControl).not.toBeNull();
 
-    expect(within(marginControl as HTMLElement).getByText(`$${expected.marginEst.toFixed(2)}`)).toBeInTheDocument();
+    expect(within(marginControl as HTMLElement).getByText(`$${expected.marginEst.toFixed(4)}`)).toBeInTheDocument();
     expect(within(beControl as HTMLElement).getByText(expected.predictedBE.toFixed(2))).toBeInTheDocument();
     expect(within(totalSizeControl as HTMLElement).getByText(expected.totalSize.toFixed(4))).toBeInTheDocument();
-    expect(within(totalCostControl as HTMLElement).getByText(`$${expected.totalCost.toFixed(2)}`)).toBeInTheDocument();
+    expect(within(totalCostControl as HTMLElement).getByText(`$${expected.totalCost.toFixed(4)}`)).toBeInTheDocument();
   });
 });
