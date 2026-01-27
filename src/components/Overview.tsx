@@ -1,3 +1,4 @@
+import dayjs from 'dayjs'
 import { useEffect, useState } from 'react';
 import {
   Grid,
@@ -13,11 +14,13 @@ import {
   Button,
   IconButton,
   createListCollection,
+  Pagination,
 } from '@chakra-ui/react';
-import { Trash } from 'lucide-react';
+import { Trash, ChevronRight, ChevronLeft } from 'lucide-react';
 import { usePlanner } from '../hooks/usePlanner';
 import { NumberInput } from './ui/NumberInput';
 import { MultiSelect } from './ui/MultiSelect';
+import { DATETIME_Format, OVERVIEW_HISTORY_PER_PAGE_KEY } from '../const';
 
 export function Overview () {
   const {
@@ -26,8 +29,8 @@ export function Overview () {
     positions,
     updatePosition,
     deletePosition,
-    overviewHistoryPreferences,
-    updateOverviewHistoryPreferences
+    getConfigValue,
+    setConfigValue,
   } = usePlanner();
 
   // Aggregate Stats
@@ -36,8 +39,10 @@ export function Overview () {
   const totalPnL = totalEquity - totalInitial;
   const pnlPercent = totalInitial > 0 ? (totalPnL / totalInitial) * 100 : 0;
 
+  const activeSetups = setups.filter(setup => !setup.isDeleted);
   const accountMap = new Map(accounts.map(account => [account.id, account]));
   const setupMap = new Map(setups.map(setup => [setup.id, setup]));
+  const activeSetupMap = new Map(activeSetups.map(setup => [setup.id, setup]));
   const accountCollection = createListCollection({
     items: [
       { label: 'All', value: '__all' },
@@ -47,7 +52,7 @@ export function Overview () {
   const setupCollection = createListCollection({
     items: [
       { label: 'All', value: '__all' },
-      ...setups.map(setup => ({ label: setup.name, value: setup.id })),
+      ...activeSetups.map(setup => ({ label: setup.name, value: setup.id })),
     ],
   });
   const allPositions = positions.map(position => ({
@@ -65,34 +70,27 @@ export function Overview () {
     : 0;
 
   const [historyPage, setHistoryPage] = useState(1);
-  const savedAccountIds = overviewHistoryPreferences.accountIds.filter(id => accountMap.has(id));
-  const savedSetupIds = overviewHistoryPreferences.setupIds.filter(id => setupMap.has(id));
-  const savedPerPage = Math.max(1, overviewHistoryPreferences.perPage || 10);
+  const [historyAccountIds, setHistoryAccountIds] = useState<string[]>([]);
+  const [historySetupIds, setHistorySetupIds] = useState<string[]>([]);
+  const rawPerPage = getConfigValue<number>(OVERVIEW_HISTORY_PER_PAGE_KEY, 10);
+  const savedPerPage = Math.max(1, Number(rawPerPage) || 10);
+
+  const validHistoryAccountIds = historyAccountIds.filter(id => accountMap.has(id));
+  const validHistorySetupIds = historySetupIds.filter(id => activeSetupMap.has(id));
 
   useEffect(() => {
-    const accountsChanged = savedAccountIds.length !== overviewHistoryPreferences.accountIds.length;
-    const setupsChanged = savedSetupIds.length !== overviewHistoryPreferences.setupIds.length;
-    const perPageChanged = savedPerPage !== overviewHistoryPreferences.perPage;
-    if (accountsChanged || setupsChanged || perPageChanged) {
-      updateOverviewHistoryPreferences({
-        accountIds: savedAccountIds,
-        setupIds: savedSetupIds,
-        perPage: savedPerPage,
-      });
+    if (savedPerPage !== rawPerPage) {
+      setConfigValue(OVERVIEW_HISTORY_PER_PAGE_KEY, savedPerPage);
     }
   }, [
-    savedAccountIds,
-    savedSetupIds,
     savedPerPage,
-    overviewHistoryPreferences.accountIds,
-    overviewHistoryPreferences.setupIds,
-    overviewHistoryPreferences.perPage,
-    updateOverviewHistoryPreferences,
+    rawPerPage,
+    setConfigValue,
   ]);
 
   const filteredHistory = closedPositions.filter(p => {
-    const accountOk = savedAccountIds.length === 0 || savedAccountIds.includes(p.position.accountId);
-    const setupOk = savedSetupIds.length === 0 || savedSetupIds.includes(p.position.setupId);
+    const accountOk = validHistoryAccountIds.length === 0 || validHistoryAccountIds.includes(p.position.accountId);
+    const setupOk = validHistorySetupIds.length === 0 || validHistorySetupIds.includes(p.position.setupId);
     return accountOk && setupOk;
   });
   const pageCount = Math.max(1, Math.ceil(filteredHistory.length / savedPerPage));
@@ -102,11 +100,17 @@ export function Overview () {
     currentPage * savedPerPage
   );
 
+  useEffect(() => {
+    if (historyPage !== currentPage) {
+      setHistoryPage(currentPage);
+    }
+  }, [historyPage, currentPage]);
+
   const handlePerPageChange = (raw: string) => {
     const parsed = Number(raw);
     const next = Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 1;
     setHistoryPage(1);
-    updateOverviewHistoryPreferences({ perPage: next });
+    setConfigValue(OVERVIEW_HISTORY_PER_PAGE_KEY, next);
   };
 
   const commitPnL = (positionId: string, raw: string) => {
@@ -182,7 +186,7 @@ export function Overview () {
         </GridItem>
       </Grid>
 
-      <Heading size="sm" mt={4} color="info">Recent Active Positions</Heading>
+      <Heading size="sm" mt={4} color="info">Active Positions</Heading>
       <Card.Root bg="surface" color="fg" borderColor="border">
         <Card.Body>
           {activePositions.length === 0 ? (
@@ -213,7 +217,7 @@ export function Overview () {
                       <Table.Cell>{accountName}</Table.Cell>
                       <Table.Cell>{setupName}</Table.Cell>
                       <Table.Cell>
-                        <Badge bg={position.status === 'planning' ? 'brand' : 'success'} color="bg">
+                        <Badge bg={position.status === 'planning' ? 'info' : 'success'}>
                           {position.status}
                         </Badge>
                       </Table.Cell>
@@ -243,18 +247,14 @@ export function Overview () {
                   size="sm"
                   width="240px"
                   collection={accountCollection}
-                  value={savedAccountIds.length === 0 ? ['__all'] : savedAccountIds}
+                  value={validHistoryAccountIds.length === 0 ? ['__all'] : validHistoryAccountIds}
                   placeholder="All accounts"
                   onCommit={(raw) => {
                     const values = raw.length > 0 && raw[raw.length - 1] !== '__all'
                       ? raw.filter(v => v !== '__all')
                       : [];
                     setHistoryPage(1);
-                    if (values.length === 0) {
-                      updateOverviewHistoryPreferences({ accountIds: [] });
-                      return;
-                    }
-                    updateOverviewHistoryPreferences({ accountIds: values });
+                    setHistoryAccountIds(values);
                   }}
                 />
               </VStack>
@@ -265,18 +265,14 @@ export function Overview () {
                   size="sm"
                   width="240px"
                   collection={setupCollection}
-                  value={savedSetupIds.length === 0 ? ['__all'] : savedSetupIds}
+                  value={validHistorySetupIds.length === 0 ? ['__all'] : validHistorySetupIds}
                   placeholder="All setups"
                   onCommit={(raw) => {
                     const values = raw.length > 0 && raw[raw.length - 1] !== '__all'
                       ? raw.filter(v => v !== '__all')
                       : [];
                     setHistoryPage(1);
-                    if (values.length === 0) {
-                      updateOverviewHistoryPreferences({ setupIds: [] });
-                      return;
-                    }
-                    updateOverviewHistoryPreferences({ setupIds: values });
+                    setHistorySetupIds(values);
                   }}
                 />
               </VStack>
@@ -319,7 +315,7 @@ export function Overview () {
                     const notionalCost = position.steps.reduce((sum, step) => sum + step.cost, 0);
                     return (
                       <Table.Row key={position.id}>
-                        <Table.Cell>{new Date(position.closedAt || position.createdAt).toLocaleString()}</Table.Cell>
+                        <Table.Cell>{dayjs(position.closedAt || position.createdAt).format(DATETIME_Format)}</Table.Cell>
                         <Table.Cell>{accountName}</Table.Cell>
                         <Table.Cell>{setupName}</Table.Cell>
                         <Table.Cell fontWeight="bold" color="accentAlt">{position.symbol}</Table.Cell>
@@ -348,11 +344,12 @@ export function Overview () {
                           <IconButton
                             aria-label="Delete"
                             size="sm"
+                            px="3"
                             color="danger"
                             variant="ghost"
                             onClick={() => deletePosition(position.id)}
                           >
-                            <Trash size={14} />
+                            <Trash size={14} /> Delete
                           </IconButton>
                         </Table.Cell>
                       </Table.Row>
@@ -363,29 +360,42 @@ export function Overview () {
             )}
 
             {filteredHistory.length > 0 && (
-              <HStack justify="space-between">
-                <Text fontSize="sm" color="muted">
-                  Page {currentPage} of {pageCount} • {filteredHistory.length} total
-                </Text>
-                <HStack>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setHistoryPage(Math.max(1, currentPage - 1))}
-                    disabled={currentPage === 1}
-                  >
-                    Prev
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setHistoryPage(Math.min(pageCount, currentPage + 1))}
-                    disabled={currentPage === pageCount}
-                  >
-                    Next
-                  </Button>
+              <Pagination.Root
+                count={filteredHistory.length}
+                pageSize={savedPerPage}
+                page={currentPage}
+                onPageChange={(details) => setHistoryPage(details.page)}
+              >
+                <HStack justify="space-between" align="center">
+                  <Text as="div" fontSize="sm" color="muted">
+                    <Pagination.PageText format="short" color="monokai.gray.300" />
+                  </Text>
+                  <HStack>
+                    <Pagination.PrevTrigger asChild>
+                      <IconButton variant="ghost" color="muted">
+                        <ChevronLeft />
+                      </IconButton>
+                    </Pagination.PrevTrigger>
+                    <Pagination.Items
+                      render={(page) => (
+                        <Button
+                          variant="ghost"
+                          key={`history-page-${page.value}`}
+                          size="sm"
+                          color={page.value === currentPage ? 'accentAlt' : 'muted'}
+                        >
+                          {page.value}
+                        </Button>
+                      )}
+                    />
+                    <Pagination.NextTrigger asChild>
+                      <IconButton variant="ghost" color="muted">
+                        <ChevronRight />
+                      </IconButton>
+                    </Pagination.NextTrigger>
+                  </HStack>
                 </HStack>
-              </HStack>
+              </Pagination.Root>
             )}
           </VStack>
         </Card.Body>

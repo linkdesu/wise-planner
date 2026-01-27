@@ -3,19 +3,19 @@ import { plannerStore } from '../store/PlannerStore';
 import { AccountModel } from '../models/AccountModel';
 import { SetupModel } from '../models/SetupModel';
 import { PositionModel } from '../models/PositionModel';
-import { OverviewHistoryPreferencesModel } from '../models/OverviewHistoryPreferencesModel';
+import type { JSONValue } from '../models/types';
 
 export function usePlanner () {
   const state = useSyncExternalStore(
     (cb) => plannerStore.subscribe(cb),
-    () => plannerStore.snapshot
+    () => plannerStore.snapshot,
   );
 
   return {
     accounts: state.accounts,
     setups: state.setups,
     positions: state.positions,
-    overviewHistoryPreferences: state.overviewHistoryPreferences,
+    configs: state.configs,
     isLoading: state.isLoading,
     addAccount: (a: AccountModel) => plannerStore.addAccount(a),
     updateAccount: (a: AccountModel) => plannerStore.updateAccount(a),
@@ -26,8 +26,8 @@ export function usePlanner () {
     addPosition: (p: PositionModel) => plannerStore.addPosition(p),
     updatePosition: (p: PositionModel) => plannerStore.updatePosition(p),
     deletePosition: (id: string) => plannerStore.deletePosition(id),
-    updateOverviewHistoryPreferences: (updates: Partial<OverviewHistoryPreferencesModel>) =>
-      plannerStore.updateOverviewHistoryPreferences(updates),
+    getConfigValue: <T extends JSONValue>(key: string, fallback: T) => plannerStore.getConfigValue(key, fallback),
+    setConfigValue: (key: string, value: JSONValue) => plannerStore.setConfigValue(key, value),
     exportData: () => plannerStore.exportData(),
     importData: async (json: string) => plannerStore.importData(json),
     clearAllData: async () => plannerStore.clearAllData(),

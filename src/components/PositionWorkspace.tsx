@@ -16,6 +16,7 @@ import { NumberInput } from './ui/NumberInput';
 export function PositionWorkspace () {
   const { accounts, setups, positions, addPosition, updatePosition, deletePosition } = usePlanner();
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
+  const activeSetups = setups.filter(setup => !setup.isDeleted);
 
   // Derived state: Use selected or default to first
   const activeAccountId = selectedAccountId || accounts[0]?.id;
@@ -37,10 +38,10 @@ export function PositionWorkspace () {
       leverage: 1
     });
     // Apply default setup if available
-    if (setups.length > 0) {
-      newPos.applySetup(setups[0]);
+    if (activeSetups.length > 0) {
+      newPos.applySetup(activeSetups[0]);
       // Initial calc
-      newPos.recalculateRiskDriven(setups[0], currentAccount.currentBalance, {
+      newPos.recalculateRiskDriven(activeSetups[0], currentAccount.currentBalance, {
         makerFee: currentAccount.makerFee,
         takerFee: currentAccount.takerFee,
       });
@@ -88,7 +89,7 @@ export function PositionWorkspace () {
               </Select.Trigger>
             </Select.Control>
             <Select.Positioner>
-              <Select.Content bg="surface" color="fg" borderColor="border" boxShadow="lg">
+              <Select.Content bg="surface" color="fg" borderColor="border">
                 {accountCollection.items.map(item => (
                   <Select.Item item={item} key={item.value}>
                     <Select.ItemText>{item.label}</Select.ItemText>
@@ -97,12 +98,12 @@ export function PositionWorkspace () {
               </Select.Content>
             </Select.Positioner>
           </Select.Root>
-          <Badge bg="success" color="bg" fontSize="md">
+          <Badge bg="subtle" color="brand" fontSize="md">
             ${currentAccount.currentBalance.toFixed(2)}
           </Badge>
         </HStack>
         <HStack>
-          <Button onClick={handleAddPosition} bg="accent" color="bg" _hover={{ bg: 'accentAlt', color: 'bg' }}>
+          <Button color="success" onClick={handleAddPosition}>
             <Plus size={16} />
             New Plan
           </Button>
@@ -112,11 +113,12 @@ export function PositionWorkspace () {
       <Box>
         {activePositions.length === 0 && <Text color="muted" textAlign="center">No active positions.</Text>}
         <VStack align="stretch" gap={4}>
-          {activePositions.map(pos => (
+          {activePositions.reverse().map(pos => (
             <PositionCard
               key={pos.id}
               position={pos}
-              setups={setups}
+              setups={activeSetups}
+              allSetups={setups}
               accountBalance={currentAccount.currentBalance}
               accountFees={{ makerFee: currentAccount.makerFee, takerFee: currentAccount.takerFee }}
               onUpdate={(updater) => handleUpdatePosition(pos.id, updater)}
@@ -132,15 +134,17 @@ export function PositionWorkspace () {
 
 // --- Sub-components ---
 
-function PositionCard ({ position, setups, accountBalance, accountFees, onUpdate, onDelete }: {
+function PositionCard ({ position, setups, allSetups, accountBalance, accountFees, onUpdate, onDelete }: {
   position: PositionModel,
   setups: SetupModel[],
+  allSetups: SetupModel[],
   accountBalance: number,
   accountFees: { makerFee: number; takerFee: number },
   onUpdate: (fn: (p: PositionModel) => void) => void,
   onDelete: () => void
 }) {
   const { makerFee, takerFee } = accountFees;
+  const allSetupsMap = new Map(allSetups.map(setup => [setup.id, setup]));
   const setupCollection = createListCollection({
     items: setups.map(s => ({ label: s.name, value: s.id })),
   });
@@ -159,6 +163,9 @@ function PositionCard ({ position, setups, accountBalance, accountFees, onUpdate
       });
     }
   };
+
+  const deletedSetup = position.setupId ? allSetupsMap.get(position.setupId) : undefined;
+  const isDeletedSetupReference = Boolean(deletedSetup?.isDeleted);
 
   const isOpened = position.status === 'opened';
 
@@ -226,7 +233,7 @@ function PositionCard ({ position, setups, accountBalance, accountFees, onUpdate
                   size="sm"
                   width="240px"
                   collection={setupCollection}
-                  value={position.setupId ? [position.setupId] : []}
+                  value={!isDeletedSetupReference && position.setupId ? [position.setupId] : []}
                   onValueChange={(e) => handleSetupChange(e.value[0] || '')}
                 >
                   <Select.Control>
@@ -245,11 +252,16 @@ function PositionCard ({ position, setups, accountBalance, accountFees, onUpdate
                     </Select.Content>
                   </Select.Positioner>
                 </Select.Root>
+                {isDeletedSetupReference && (
+                  <Text fontSize="xs" color="warning">
+                    Deleted setup: {deletedSetup?.name || 'Unknown'}
+                  </Text>
+                )}
                 <Badge bg={isOpened ? 'success' : 'brand'} color="bg">{position.status.toUpperCase()}</Badge>
               </HStack>
               <HStack>
-                <IconButton aria-label="Delete" size="sm" onClick={onDelete} variant="ghost" color="danger">
-                  <Trash size={14} />
+                <IconButton aria-label="Delete" size="sm" px="3" onClick={onDelete} variant="ghost" color="danger">
+                  <Trash size={14} /> Delete
                 </IconButton>
               </HStack>
             </HStack>

@@ -1,14 +1,27 @@
 import { AccountModel } from '../models/AccountModel';
 import { SetupModel } from '../models/SetupModel';
 import { PositionModel } from '../models/PositionModel';
-import { OverviewHistoryPreferencesModel } from '../models/OverviewHistoryPreferencesModel';
+import { Config } from '../models/ConfigModel';
+import type { JSONValue } from '../models/types';
 import * as db from './db';
+
+const LEGACY_OVERVIEW_HISTORY_ID = 'overview-history';
+const OVERVIEW_HISTORY_PER_PAGE_KEY = 'overview.history.perPage';
+const DEPRECATED_OVERVIEW_HISTORY_FILTER_KEYS = [
+  'overview.history.accountIds',
+  'overview.history.setupIds',
+];
+
+function isNonEmptyKey (key: unknown): key is string {
+  return typeof key === 'string' && key.trim().length > 0;
+}
 
 export class PlannerStore {
   accounts: AccountModel[] = [];
   setups: SetupModel[] = [];
   positions: PositionModel[] = [];
-  overviewHistoryPreferences: OverviewHistoryPreferencesModel = new OverviewHistoryPreferencesModel();
+  configs: Config[] = [];
+  configMap: Map<string, Config> = new Map();
   isLoading: boolean = true;
   listeners: Set<() => void> = new Set();
 
@@ -17,8 +30,8 @@ export class PlannerStore {
     accounts: this.accounts,
     setups: this.setups,
     positions: this.positions,
-    overviewHistoryPreferences: this.overviewHistoryPreferences,
-    isLoading: this.isLoading
+    configs: this.configs,
+    isLoading: this.isLoading,
   };
 
   constructor () {
@@ -37,30 +50,89 @@ export class PlannerStore {
     }
   }
 
+  private setConfigs (configs: Config[]) {
+    this.configs = configs;
+    this.configMap = new Map(configs.map(config => [config.key, config]));
+  }
+
+  private upsertConfigInMemory (config: Config) {
+    if (!isNonEmptyKey(config.key)) return;
+    const idx = this.configs.findIndex(c => c.key === config.key);
+    if (idx === -1) {
+      this.configs.push(config);
+    } else {
+      this.configs[idx] = config;
+    }
+    this.configMap.set(config.key, config);
+  }
+
+  private buildLegacyOverviewHistoryConfigs (rawConfigs: unknown[]): Config[] {
+    const legacy = rawConfigs.find((entry: any) => entry?.id === LEGACY_OVERVIEW_HISTORY_ID || entry?.key === LEGACY_OVERVIEW_HISTORY_ID) as any;
+    if (!legacy || typeof legacy !== 'object') return [];
+
+    const perPageRaw = Number(legacy.perPage);
+    const perPage = Number.isFinite(perPageRaw) && perPageRaw > 0 ? Math.floor(perPageRaw) : 10;
+
+    return [
+      new Config({ key: OVERVIEW_HISTORY_PER_PAGE_KEY, value: perPage }),
+    ];
+  }
+
+  private mergeConfigs (...lists: Config[][]): Config[] {
+    const merged = new Map<string, Config>();
+    for (const list of lists) {
+      for (const config of list) {
+        if (!isNonEmptyKey(config.key)) continue;
+        merged.set(config.key, config);
+      }
+    }
+    return Array.from(merged.values());
+  }
+
   async loadFromDB () {
-    const [storedAccounts, storedSetups, storedPositions, storedOverviewHistoryPreferences] = await Promise.all([
+    const [storedAccounts, storedSetups, storedPositions, storedConfigs] = await Promise.all([
       db.getAllAccounts(),
       db.getAllSetups(),
       db.getAllPositions(),
-      db.getConfig('overview-history')
+      db.getAllConfigs(),
     ]);
 
     // Re-hydrate plain objects into Models including methods
     this.accounts = storedAccounts.map(d => new AccountModel(d));
     this.setups = storedSetups.map(d => new SetupModel(d));
     this.positions = storedPositions.map(d => new PositionModel(d));
-    this.overviewHistoryPreferences = storedOverviewHistoryPreferences
-      ? new OverviewHistoryPreferencesModel(storedOverviewHistoryPreferences)
-      : new OverviewHistoryPreferencesModel();
+
+    const configsFromKeys = storedConfigs
+      .map(d => new Config(d))
+      .filter(config => isNonEmptyKey(config.key));
+    const legacyConfigs = this.buildLegacyOverviewHistoryConfigs(storedConfigs);
+    const mergedConfigs = this.mergeConfigs(configsFromKeys, legacyConfigs);
+    const cleanedConfigs = mergedConfigs.filter(
+      config => !DEPRECATED_OVERVIEW_HISTORY_FILTER_KEYS.includes(config.key),
+    );
+    this.setConfigs(cleanedConfigs);
+
+    if (legacyConfigs.length > 0) {
+      try {
+        await Promise.all(legacyConfigs.map(config => db.saveConfig(config)));
+        await db.deleteConfig(LEGACY_OVERVIEW_HISTORY_ID);
+      } catch (error) {
+        console.error('Failed to migrate legacy overview history configs', error);
+      }
+    }
+
+    const deprecatedKeysPresent = DEPRECATED_OVERVIEW_HISTORY_FILTER_KEYS
+      .filter(key => mergedConfigs.some(config => config.key === key));
+    if (deprecatedKeysPresent.length > 0) {
+      Promise.all(deprecatedKeysPresent.map(key => db.deleteConfig(key))).catch((error) => {
+        console.error('Failed to delete deprecated overview history filter configs', error);
+      });
+    }
 
     // Create defaults if absolutely nothing exists
     if (this.accounts.length === 0 && this.setups.length === 0) {
       this.createDefaultSetup();
       this.createDefaultAccount();
-    }
-
-    if (!storedOverviewHistoryPreferences) {
-      db.saveConfig(this.overviewHistoryPreferences).catch(e => console.error('DB Save Error', e));
     }
 
     // Recalculate account stats based on positions
@@ -72,8 +144,8 @@ export class PlannerStore {
       accounts: [...this.accounts],
       setups: [...this.setups],
       positions: [...this.positions],
-      overviewHistoryPreferences: this.overviewHistoryPreferences,
-      isLoading: this.isLoading
+      configs: [...this.configs],
+      isLoading: this.isLoading,
     };
     this.notify();
   }
@@ -82,6 +154,20 @@ export class PlannerStore {
     this.accounts.forEach(acc => {
       acc.calculateStats(this.positions);
     });
+  }
+
+  getConfigValue<T extends JSONValue> (key: string, fallback: T): T {
+    const config = this.configMap.get(key);
+    if (!config) return fallback;
+    return config.value as T;
+  }
+
+  setConfigValue (key: string, value: JSONValue) {
+    if (!isNonEmptyKey(key)) return;
+    const next = new Config({ key, value });
+    this.upsertConfigInMemory(next);
+    this.updateSnapshot();
+    db.saveConfig(next).catch(e => console.error('DB Update Error', e));
   }
 
   createDefaultSetup () {
@@ -111,13 +197,15 @@ export class PlannerStore {
   }
 
   deleteAccount (id: string) {
-    // Basic delete
+    const positionsToDelete = this.positions.filter(p => p.accountId === id);
     this.accounts = this.accounts.filter(a => a.id !== id);
-    // Ideally cascade delete positions in DB too, but for now memory only
     this.positions = this.positions.filter(p => p.accountId !== id);
-
+    this.recalcAllAccounts();
     this.updateSnapshot();
-    db.deleteAccount(id).catch(e => console.error('DB Delete Error', e));
+    Promise.all([
+      ...positionsToDelete.map(position => db.deletePosition(position.id)),
+      db.deleteAccount(id),
+    ]).catch(e => console.error('DB Delete Error', e));
   }
 
   // CRUD for Setups
@@ -137,6 +225,17 @@ export class PlannerStore {
   }
 
   deleteSetup (id: string) {
+    const hasRelatedPositions = this.positions.some(position => position.setupId === id);
+    const setup = this.setups.find(s => s.id === id);
+    if (!setup) return;
+
+    if (hasRelatedPositions) {
+      setup.isDeleted = true;
+      this.updateSnapshot();
+      db.saveSetup(setup).catch(e => console.error('DB Update Error', e));
+      return;
+    }
+
     this.setups = this.setups.filter(s => s.id !== id);
     this.updateSnapshot();
     db.deleteSetup(id).catch(e => console.error('DB Delete Error', e));
@@ -167,23 +266,13 @@ export class PlannerStore {
     db.deletePosition(id).catch(e => console.error('DB Delete Error', e));
   }
 
-  updateOverviewHistoryPreferences (updates: Partial<OverviewHistoryPreferencesModel>) {
-    const next = new OverviewHistoryPreferencesModel({
-      ...this.overviewHistoryPreferences,
-      ...updates,
-    });
-    this.overviewHistoryPreferences = next;
-    this.updateSnapshot();
-    db.saveConfig(next).catch(e => console.error('DB Update Error', e));
-  }
-
   // Import/Export
   exportData (): string {
     return JSON.stringify({
       accounts: this.accounts,
       setups: this.setups,
       positions: this.positions,
-      configs: [this.overviewHistoryPreferences],
+      configs: this.configs,
     }, null, 2);
   }
 
@@ -193,17 +282,25 @@ export class PlannerStore {
       const accounts = (data.accounts || []).map((d: Partial<AccountModel>) => new AccountModel(d));
       const setups = (data.setups || []).map((d: Partial<SetupModel>) => new SetupModel(d));
       const positions = (data.positions || []).map((d: Partial<PositionModel>) => new PositionModel(d));
-      const configs = (data.configs || []).map((d: Partial<OverviewHistoryPreferencesModel>) => new OverviewHistoryPreferencesModel(d));
+
+      const rawConfigs: unknown[] = data.configs || [];
+      const configsFromKeys = rawConfigs
+        .map((d) => new Config(d as Partial<Config>))
+        .filter(config => isNonEmptyKey(config.key));
+      const legacyConfigs = this.buildLegacyOverviewHistoryConfigs(rawConfigs);
+      const mergedConfigs = this.mergeConfigs(configsFromKeys, legacyConfigs);
+      const cleanedConfigs = mergedConfigs.filter(
+        config => !DEPRECATED_OVERVIEW_HISTORY_FILTER_KEYS.includes(config.key),
+      );
 
       // Update DB
-      await db.bulkSave(accounts, setups, positions, configs);
+      await db.bulkSave(accounts, setups, positions, cleanedConfigs);
 
       // Update Memory
       this.accounts = accounts;
       this.setups = setups;
       this.positions = positions;
-      this.overviewHistoryPreferences = configs.find((c: OverviewHistoryPreferencesModel) => c.id === 'overview-history')
-        || new OverviewHistoryPreferencesModel();
+      this.setConfigs(cleanedConfigs);
       this.recalcAllAccounts();
       this.updateSnapshot();
     } catch (e) {

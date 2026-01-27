@@ -5,9 +5,21 @@ import system from '../theme/monokai';
 import { Overview } from './Overview';
 import { PositionModel } from '../models/PositionModel';
 import { SetupModel } from '../models/SetupModel';
-import { OverviewHistoryPreferencesModel } from '../models/OverviewHistoryPreferencesModel';
 
 let plannerState: ReturnType<typeof createPlannerState>;
+const OVERVIEW_HISTORY_PER_PAGE_KEY = 'overview.history.perPage';
+
+function upsertConfig (key: string, value: unknown) {
+  const next = { key, value };
+  const idx = plannerState.configs.findIndex(c => c.key === key);
+  if (idx === -1) {
+    plannerState.configs.push(next);
+  } else {
+    plannerState.configs[idx] = next;
+  }
+  plannerState.configMap.set(key, next);
+}
+
 const createPlannerState = () => {
   const accountA = {
     id: 'acc-a',
@@ -66,14 +78,16 @@ const createPlannerState = () => {
     accounts: [accountA, accountB],
     setups: [setupA, setupB],
     positions: [position1, position2, position3],
-    overviewHistoryPreferences: new OverviewHistoryPreferencesModel(),
+    configs: [] as Array<{ key: string; value: unknown }>,
+    configMap: new Map<string, { key: string; value: unknown }>(),
     updatePosition: vi.fn(),
     deletePosition: vi.fn(),
-    updateOverviewHistoryPreferences: vi.fn((updates: Partial<OverviewHistoryPreferencesModel>) => {
-      plannerState.overviewHistoryPreferences = new OverviewHistoryPreferencesModel({
-        ...plannerState.overviewHistoryPreferences,
-        ...updates,
-      });
+    getConfigValue: vi.fn(<T,>(key: string, fallback: T): T => {
+      const config = plannerState.configMap.get(key);
+      return (config ? (config.value as T) : fallback);
+    }),
+    setConfigValue: vi.fn((key: string, value: unknown) => {
+      upsertConfig(key, value);
     }),
   };
 };
@@ -84,10 +98,11 @@ vi.mock('../hooks/usePlanner', () => {
       accounts: plannerState.accounts,
       setups: plannerState.setups,
       positions: plannerState.positions,
-      overviewHistoryPreferences: plannerState.overviewHistoryPreferences,
+      configs: plannerState.configs,
       updatePosition: plannerState.updatePosition,
       deletePosition: plannerState.deletePosition,
-      updateOverviewHistoryPreferences: plannerState.updateOverviewHistoryPreferences,
+      getConfigValue: plannerState.getConfigValue,
+      setConfigValue: plannerState.setConfigValue,
     }),
   };
 });
@@ -114,29 +129,22 @@ describe('Overview', () => {
     expect(screen.getByText('SOLUSDT')).toBeInTheDocument();
   });
 
-  it('applies AND filter preferences for account and setup', () => {
-    plannerState.overviewHistoryPreferences = new OverviewHistoryPreferencesModel({
-      accountIds: ['acc-a'],
-      setupIds: ['setup-a'],
-      perPage: 10,
-    });
+  it('ignores persisted filter configs and defaults to All filters', () => {
+    plannerState.setConfigValue(OVERVIEW_HISTORY_PER_PAGE_KEY, 10);
 
     renderOverview();
 
     expect(screen.getByText('BTCUSDT')).toBeInTheDocument();
-    expect(screen.queryByText('ETHUSDT')).toBeNull();
-    expect(screen.queryByText('SOLUSDT')).toBeNull();
+    expect(screen.getByText('ETHUSDT')).toBeInTheDocument();
+    expect(screen.getByText('SOLUSDT')).toBeInTheDocument();
   });
 
   it('paginates history based on per-page preference', () => {
-    plannerState.overviewHistoryPreferences = new OverviewHistoryPreferencesModel({
-      accountIds: [],
-      setupIds: [],
-      perPage: 1,
-    });
+    plannerState.setConfigValue(OVERVIEW_HISTORY_PER_PAGE_KEY, 1);
 
     renderOverview();
 
-    expect(screen.getByText('Page 1 of 3 • 3 total')).toBeInTheDocument();
+    const matches = screen.getAllByText((_, node) => node?.textContent?.includes('1 / 3') ?? false);
+    expect(matches.length).toBeGreaterThan(0);
   });
 });

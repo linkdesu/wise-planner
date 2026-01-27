@@ -1,3 +1,4 @@
+import dayjs from 'dayjs'
 import { ChakraProvider, Box, Flex, Heading, Tabs, Button } from '@chakra-ui/react';
 import system from './theme/monokai';
 import { Overview } from './components/Overview';
@@ -6,6 +7,7 @@ import { SetupManager } from './components/SetupManager';
 import { PositionWorkspace } from './components/PositionWorkspace';
 import { usePlanner } from './hooks/usePlanner';
 import { Toaster, toaster } from './components/ui/toaster';
+import { FILE_DATETIME_Format } from './const';
 
 function App () {
   const { exportData, importData, clearAllData, isLoading } = usePlanner();
@@ -17,7 +19,7 @@ function App () {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `planner_backup_${new Date().toISOString()}.json`;
+    a.download = `planner_backup_${dayjs().format(FILE_DATETIME_Format).replace(' ', '_')}.json`;
     a.click();
   };
 
@@ -56,7 +58,6 @@ function App () {
 
   return (
     <ChakraProvider value={system}>
-      <Toaster />
       <Box minH="100vh" bg="bg" color="fg" p={4}>
         <Flex justify="space-between" align="center" mb={6}>
           <Heading size="lg" color="brand">Position Planner</Heading>
@@ -142,6 +143,8 @@ function App () {
           </Tabs.Content>
         </Tabs.Root>
       </Box>
+
+      <Toaster />
     </ChakraProvider>
   );
 }

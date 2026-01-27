@@ -2,7 +2,8 @@ import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import { AccountModel } from '../models/AccountModel';
 import { SetupModel } from '../models/SetupModel';
 import { PositionModel } from '../models/PositionModel';
-import { OverviewHistoryPreferencesModel } from '../models/OverviewHistoryPreferencesModel';
+import { Config } from '../models/ConfigModel';
+import type { JSONValue } from '../models/types';
 
 interface PlannerDB extends DBSchema {
   accounts: {
@@ -20,19 +21,22 @@ interface PlannerDB extends DBSchema {
   };
   configs: {
     key: string;
-    value: OverviewHistoryPreferencesModel;
+    value: Config;
   };
 }
 
 const DB_NAME = 'position-planner-db';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
+
+const LEGACY_OVERVIEW_HISTORY_ID = 'overview-history';
+const OVERVIEW_HISTORY_PER_PAGE_KEY = 'overview.history.perPage';
 
 let dbPromise: Promise<IDBPDatabase<PlannerDB>>;
 
 export function initDB () {
   if (!dbPromise) {
     dbPromise = openDB<PlannerDB>(DB_NAME, DB_VERSION, {
-      upgrade (db) {
+      upgrade: async (db, oldVersion, _newVersion, tx) => {
         if (!db.objectStoreNames.contains('accounts')) {
           db.createObjectStore('accounts', { keyPath: 'id' });
         }
@@ -43,8 +47,50 @@ export function initDB () {
           const posStore = db.createObjectStore('positions', { keyPath: 'id' });
           posStore.createIndex('by-account', 'accountId');
         }
-        if (!db.objectStoreNames.contains('configs')) {
-          db.createObjectStore('configs', { keyPath: 'id' });
+
+        const configsExists = db.objectStoreNames.contains('configs');
+        const needsConfigsRecreate = !configsExists || oldVersion < DB_VERSION;
+        let legacyConfigs: any[] = [];
+
+        if (configsExists) {
+          try {
+            legacyConfigs = await tx.objectStore('configs').getAll();
+          } catch (error) {
+            console.error('Failed to read legacy configs during upgrade', error);
+          }
+          if (needsConfigsRecreate) {
+            db.deleteObjectStore('configs');
+          }
+        }
+
+        if (needsConfigsRecreate) {
+          const configStore = db.createObjectStore('configs', { keyPath: 'key' });
+
+          const putConfig = (key: string, value: JSONValue) => {
+            try {
+              configStore.put({ key, value });
+            } catch (error) {
+              console.error('Failed to migrate config', key, error);
+            }
+          };
+
+          for (const entry of legacyConfigs) {
+            if (!entry || typeof entry !== 'object') continue;
+
+            if (typeof entry.key === 'string' && 'value' in entry) {
+              putConfig(entry.key, entry.value as JSONValue);
+              continue;
+            }
+
+            if (entry.id === LEGACY_OVERVIEW_HISTORY_ID) {
+              const perPageRaw = Number(entry.perPage);
+              const perPage = Number.isFinite(perPageRaw) && perPageRaw > 0
+                ? Math.floor(perPageRaw)
+                : 10;
+
+              putConfig(OVERVIEW_HISTORY_PER_PAGE_KEY, perPage);
+            }
+          }
         }
       },
     });
@@ -67,12 +113,12 @@ export async function getAllPositions (): Promise<PositionModel[]> {
   return db.getAll('positions');
 }
 
-export async function getConfig (id: string): Promise<OverviewHistoryPreferencesModel | undefined> {
+export async function getConfig (key: string): Promise<Config | undefined> {
   const db = await initDB();
-  return db.get('configs', id);
+  return db.get('configs', key);
 }
 
-export async function getAllConfigs (): Promise<OverviewHistoryPreferencesModel[]> {
+export async function getAllConfigs (): Promise<Config[]> {
   const db = await initDB();
   return db.getAll('configs');
 }
@@ -102,7 +148,7 @@ export async function savePosition (position: PositionModel) {
   return db.put('positions', position);
 }
 
-export async function saveConfig (config: OverviewHistoryPreferencesModel) {
+export async function saveConfig (config: Config) {
   const db = await initDB();
   return db.put('configs', config);
 }
@@ -112,9 +158,9 @@ export async function deletePosition (id: string) {
   return db.delete('positions', id);
 }
 
-export async function deleteConfig (id: string) {
+export async function deleteConfig (key: string) {
   const db = await initDB();
-  return db.delete('configs', id);
+  return db.delete('configs', key);
 }
 
 export async function clearAll () {
@@ -133,7 +179,7 @@ export async function bulkSave (
   accounts: AccountModel[],
   setups: SetupModel[],
   positions: PositionModel[],
-  configs: OverviewHistoryPreferencesModel[]
+  configs: Config[]
 ) {
   const db = await initDB();
   const tx = db.transaction(['accounts', 'setups', 'positions', 'configs'], 'readwrite');

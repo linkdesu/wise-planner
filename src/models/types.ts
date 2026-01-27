@@ -1,5 +1,7 @@
 export type OrderType = 'taker' | 'maker';
 export type PositionStatus = 'planning' | 'opened' | 'closed';
+export type JSONPrimitive = string | number | boolean | null;
+export type JSONValue = JSONPrimitive | JSONValue[] | { [key: string]: JSONValue };
 
 export interface IResizingStep {
   id: string;
@@ -36,6 +38,7 @@ export interface ISetup {
   name: string;
   resizingTimes: number;
   resizingRatios: number[];
+  isDeleted?: boolean;
 }
 
 export interface IAccount {

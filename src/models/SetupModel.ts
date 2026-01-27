@@ -5,12 +5,14 @@ export class SetupModel implements ISetup {
   name: string;
   resizingTimes: number;
   resizingRatios: number[];
+  isDeleted: boolean;
 
   constructor (data: Partial<ISetup> = {}) {
     this.id = data.id || crypto.randomUUID();
     this.name = data.name || 'Default Setup';
     this.resizingTimes = data.resizingTimes || 1;
     this.resizingRatios = data.resizingRatios || [1];
+    this.isDeleted = Boolean(data.isDeleted);
 
     // Validate ratios match resizing times
     if (this.resizingRatios.length !== this.resizingTimes) {
@@ -35,6 +37,7 @@ export class SetupModel implements ISetup {
       name: this.name,
       resizingTimes: this.resizingTimes,
       resizingRatios: this.resizingRatios,
+      isDeleted: this.isDeleted,
     };
   }
 
