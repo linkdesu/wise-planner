@@ -2,6 +2,7 @@ import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import { AccountModel } from '../models/AccountModel';
 import { SetupModel } from '../models/SetupModel';
 import { PositionModel } from '../models/PositionModel';
+import { OverviewHistoryPreferencesModel } from '../models/OverviewHistoryPreferencesModel';
 
 interface PlannerDB extends DBSchema {
   accounts: {
@@ -17,10 +18,14 @@ interface PlannerDB extends DBSchema {
     value: PositionModel;
     indexes: { 'by-account': string };
   };
+  configs: {
+    key: string;
+    value: OverviewHistoryPreferencesModel;
+  };
 }
 
 const DB_NAME = 'position-planner-db';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 let dbPromise: Promise<IDBPDatabase<PlannerDB>>;
 
@@ -37,6 +42,9 @@ export function initDB () {
         if (!db.objectStoreNames.contains('positions')) {
           const posStore = db.createObjectStore('positions', { keyPath: 'id' });
           posStore.createIndex('by-account', 'accountId');
+        }
+        if (!db.objectStoreNames.contains('configs')) {
+          db.createObjectStore('configs', { keyPath: 'id' });
         }
       },
     });
@@ -57,6 +65,16 @@ export async function getAllSetups (): Promise<SetupModel[]> {
 export async function getAllPositions (): Promise<PositionModel[]> {
   const db = await initDB();
   return db.getAll('positions');
+}
+
+export async function getConfig (id: string): Promise<OverviewHistoryPreferencesModel | undefined> {
+  const db = await initDB();
+  return db.get('configs', id);
+}
+
+export async function getAllConfigs (): Promise<OverviewHistoryPreferencesModel[]> {
+  const db = await initDB();
+  return db.getAll('configs');
 }
 
 export async function saveAccount (account: AccountModel) {
@@ -84,29 +102,46 @@ export async function savePosition (position: PositionModel) {
   return db.put('positions', position);
 }
 
+export async function saveConfig (config: OverviewHistoryPreferencesModel) {
+  const db = await initDB();
+  return db.put('configs', config);
+}
+
 export async function deletePosition (id: string) {
   const db = await initDB();
   return db.delete('positions', id);
 }
 
+export async function deleteConfig (id: string) {
+  const db = await initDB();
+  return db.delete('configs', id);
+}
+
 export async function clearAll () {
   const db = await initDB();
-  const tx = db.transaction(['accounts', 'setups', 'positions'], 'readwrite');
+  const tx = db.transaction(['accounts', 'setups', 'positions', 'configs'], 'readwrite');
   await Promise.all([
     tx.objectStore('accounts').clear(),
     tx.objectStore('setups').clear(),
     tx.objectStore('positions').clear(),
+    tx.objectStore('configs').clear(),
     tx.done,
   ]);
 }
 
-export async function bulkSave (accounts: AccountModel[], setups: SetupModel[], positions: PositionModel[]) {
+export async function bulkSave (
+  accounts: AccountModel[],
+  setups: SetupModel[],
+  positions: PositionModel[],
+  configs: OverviewHistoryPreferencesModel[]
+) {
   const db = await initDB();
-  const tx = db.transaction(['accounts', 'setups', 'positions'], 'readwrite');
+  const tx = db.transaction(['accounts', 'setups', 'positions', 'configs'], 'readwrite');
 
   await tx.objectStore('accounts').clear();
   await tx.objectStore('setups').clear();
   await tx.objectStore('positions').clear();
+  await tx.objectStore('configs').clear();
 
   for (const acc of accounts) {
     await tx.objectStore('accounts').put(acc);
@@ -116,6 +151,9 @@ export async function bulkSave (accounts: AccountModel[], setups: SetupModel[], 
   }
   for (const pos of positions) {
     await tx.objectStore('positions').put(pos);
+  }
+  for (const config of configs) {
+    await tx.objectStore('configs').put(config);
   }
 
   await tx.done;

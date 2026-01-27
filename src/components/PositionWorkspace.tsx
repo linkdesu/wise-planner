@@ -65,7 +65,6 @@ export function PositionWorkspace () {
   }
 
   const activePositions = accountPositions.filter(p => p.status !== 'closed');
-  const closedPositions = accountPositions.filter(p => p.status === 'closed').sort((a, b) => (b.closedAt || 0) - (a.closedAt || 0));
 
   return (
     <VStack gap={6} align="stretch">
@@ -126,21 +125,6 @@ export function PositionWorkspace () {
         </VStack>
       </Box>
 
-      {closedPositions.length > 0 && (
-        <Box mt={8}>
-          <Text fontSize="lg" fontWeight="bold" mb={4} color="muted">History</Text>
-          <VStack align="stretch" gap={4}>
-            {closedPositions.map(pos => (
-              <ClosedPositionCard
-                key={pos.id}
-                position={pos}
-                onUpdate={(updater) => handleUpdatePosition(pos.id, updater)}
-                onDelete={() => handleDeletePosition(pos.id)}
-              />
-            ))}
-          </VStack>
-        </Box>
-      )}
     </VStack>
   );
 }
@@ -494,56 +478,6 @@ function PositionCard ({ position, setups, accountBalance, accountFees, onUpdate
             </HStack>
           </GridItem>
         </Grid>
-      </Card.Body>
-    </Card.Root>
-  );
-}
-
-function ClosedPositionCard ({ position, onUpdate, onDelete }: { position: PositionModel, onUpdate: (fn: (p: PositionModel) => void) => void, onDelete: () => void }) {
-  // We handle PnL editing here for the record
-  const handlePnLChange = (val: number) => {
-    onUpdate(p => {
-      p.pnl = val;
-    });
-  };
-
-  return (
-    <Card.Root
-      borderLeftWidth="4px"
-      borderColor={position.pnl && position.pnl > 0 ? 'success' : 'danger'}
-      bg="surfaceAlt"
-      color="fg"
-    >
-      <Card.Body py={2}>
-        <HStack justify="space-between">
-          <HStack gap={4}>
-            <Text fontWeight="bold">{position.symbol}</Text>
-            <Text fontSize="sm" color="muted">{new Date(position.createdAt).toLocaleDateString()}</Text>
-            <Badge>{position.setupId ? 'Strategy Executed' : 'Manual'}</Badge>
-          </HStack>
-          <HStack>
-            <Text fontSize="sm" color="muted">Final PnL:</Text>
-            <NumberInput.Root
-              size="sm"
-              w="120px"
-              value={position.pnl?.toString() ?? ''}
-              onValueChange={(e) => handlePnLChange(Number(e.value))}
-            >
-              <NumberInput.Control />
-              <NumberInput.Input
-                color={position.pnl && position.pnl > 0 ? 'success' : 'danger'}
-                fontWeight="bold"
-              />
-            </NumberInput.Root>
-            <Text fontSize="sm" color="muted">Fees:</Text>
-            <Text fontSize="sm" color="warning">
-              {position.feeTotal ? `$${position.feeTotal.toFixed(4)}` : '-'}
-            </Text>
-            <IconButton aria-label="Delete" size="sm" variant="ghost" onClick={onDelete}>
-              <Trash size={14} />
-            </IconButton>
-          </HStack>
-        </HStack>
       </Card.Body>
     </Card.Root>
   );

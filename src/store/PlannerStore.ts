@@ -1,12 +1,14 @@
 import { AccountModel } from '../models/AccountModel';
 import { SetupModel } from '../models/SetupModel';
 import { PositionModel } from '../models/PositionModel';
+import { OverviewHistoryPreferencesModel } from '../models/OverviewHistoryPreferencesModel';
 import * as db from './db';
 
 export class PlannerStore {
   accounts: AccountModel[] = [];
   setups: SetupModel[] = [];
   positions: PositionModel[] = [];
+  overviewHistoryPreferences: OverviewHistoryPreferencesModel = new OverviewHistoryPreferencesModel();
   isLoading: boolean = true;
   listeners: Set<() => void> = new Set();
 
@@ -15,6 +17,7 @@ export class PlannerStore {
     accounts: this.accounts,
     setups: this.setups,
     positions: this.positions,
+    overviewHistoryPreferences: this.overviewHistoryPreferences,
     isLoading: this.isLoading
   };
 
@@ -35,21 +38,29 @@ export class PlannerStore {
   }
 
   async loadFromDB () {
-    const [storedAccounts, storedSetups, storedPositions] = await Promise.all([
+    const [storedAccounts, storedSetups, storedPositions, storedOverviewHistoryPreferences] = await Promise.all([
       db.getAllAccounts(),
       db.getAllSetups(),
-      db.getAllPositions()
+      db.getAllPositions(),
+      db.getConfig('overview-history')
     ]);
 
     // Re-hydrate plain objects into Models including methods
     this.accounts = storedAccounts.map(d => new AccountModel(d));
     this.setups = storedSetups.map(d => new SetupModel(d));
     this.positions = storedPositions.map(d => new PositionModel(d));
+    this.overviewHistoryPreferences = storedOverviewHistoryPreferences
+      ? new OverviewHistoryPreferencesModel(storedOverviewHistoryPreferences)
+      : new OverviewHistoryPreferencesModel();
 
     // Create defaults if absolutely nothing exists
     if (this.accounts.length === 0 && this.setups.length === 0) {
       this.createDefaultSetup();
       this.createDefaultAccount();
+    }
+
+    if (!storedOverviewHistoryPreferences) {
+      db.saveConfig(this.overviewHistoryPreferences).catch(e => console.error('DB Save Error', e));
     }
 
     // Recalculate account stats based on positions
@@ -61,6 +72,7 @@ export class PlannerStore {
       accounts: [...this.accounts],
       setups: [...this.setups],
       positions: [...this.positions],
+      overviewHistoryPreferences: this.overviewHistoryPreferences,
       isLoading: this.isLoading
     };
     this.notify();
@@ -155,12 +167,23 @@ export class PlannerStore {
     db.deletePosition(id).catch(e => console.error('DB Delete Error', e));
   }
 
+  updateOverviewHistoryPreferences (updates: Partial<OverviewHistoryPreferencesModel>) {
+    const next = new OverviewHistoryPreferencesModel({
+      ...this.overviewHistoryPreferences,
+      ...updates,
+    });
+    this.overviewHistoryPreferences = next;
+    this.updateSnapshot();
+    db.saveConfig(next).catch(e => console.error('DB Update Error', e));
+  }
+
   // Import/Export
   exportData (): string {
     return JSON.stringify({
       accounts: this.accounts,
       setups: this.setups,
       positions: this.positions,
+      configs: [this.overviewHistoryPreferences],
     }, null, 2);
   }
 
@@ -170,14 +193,17 @@ export class PlannerStore {
       const accounts = (data.accounts || []).map((d: Partial<AccountModel>) => new AccountModel(d));
       const setups = (data.setups || []).map((d: Partial<SetupModel>) => new SetupModel(d));
       const positions = (data.positions || []).map((d: Partial<PositionModel>) => new PositionModel(d));
+      const configs = (data.configs || []).map((d: Partial<OverviewHistoryPreferencesModel>) => new OverviewHistoryPreferencesModel(d));
 
       // Update DB
-      await db.bulkSave(accounts, setups, positions);
+      await db.bulkSave(accounts, setups, positions, configs);
 
       // Update Memory
       this.accounts = accounts;
       this.setups = setups;
       this.positions = positions;
+      this.overviewHistoryPreferences = configs.find(c => c.id === 'overview-history')
+        || new OverviewHistoryPreferencesModel();
       this.recalcAllAccounts();
       this.updateSnapshot();
     } catch (e) {
