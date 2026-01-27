@@ -2,7 +2,7 @@ import { useState } from 'react';
 import {
   Box, Button, Select, VStack, HStack, Card,
   Text, Badge, Grid, GridItem, Field, Input,
-  NumberInput, Separator, Checkbox,
+  Separator, Checkbox,
   IconButton, Switch,
   Heading, createListCollection
 } from '@chakra-ui/react';
@@ -11,6 +11,7 @@ import { usePlanner } from '../hooks/usePlanner';
 import { PositionModel } from '../models/PositionModel';
 import { SetupModel } from '../models/SetupModel';
 import type { OrderType } from '../models/types';
+import { NumberInput } from './ui/NumberInput';
 
 export function PositionWorkspace () {
   const { accounts, setups, positions, addPosition, updatePosition, deletePosition } = usePlanner();
@@ -159,18 +160,6 @@ function PositionCard ({ position, setups, accountBalance, accountFees, onUpdate
     }
   };
 
-  const handleRecalculate = () => {
-    const setup = setups.find(s => s.id === position.setupId);
-    if (setup) {
-      onUpdate(p => p.recalculateRiskDriven(setup, accountBalance, { makerFee, takerFee }));
-    }
-  };
-
-
-  // Auto-recalculate on blur of key fields
-  const handleBlur = () => handleRecalculate();
-
-
   const isOpened = position.status === 'opened';
 
   // Estimate margin
@@ -271,39 +260,64 @@ function PositionCard ({ position, setups, accountBalance, accountFees, onUpdate
           <GridItem colSpan={2}>
             <Field.Root>
               <Field.Label fontSize="xs" color="muted">Risk Amount ($)</Field.Label>
-              <NumberInput.Root
+              <NumberInput
+                key={`risk-${position.id}-${position.riskAmount}`}
                 value={position.riskAmount.toString()}
-                onValueChange={(e) => onUpdate(p => p.riskAmount = Number(e.value))}
-              >
-                <NumberInput.Control />
-                <NumberInput.Input onBlur={handleBlur} />
-              </NumberInput.Root>
+                onCommit={(raw) => {
+                  const next = Number(raw);
+                  if (!Number.isFinite(next)) return;
+                  onUpdate(p => {
+                    p.riskAmount = next;
+                    const setup = setups.find(s => s.id === p.setupId);
+                    if (setup) {
+                      p.recalculateRiskDriven(setup, accountBalance, { makerFee, takerFee });
+                    }
+                  });
+                }}
+              />
             </Field.Root>
           </GridItem>
           <GridItem colSpan={2}>
             <Field.Root>
               <Field.Label fontSize="xs" color="muted">Stop Loss Price</Field.Label>
-              <NumberInput.Root
+              <NumberInput
+                key={`sl-${position.id}-${position.stopLossPrice}`}
                 value={position.stopLossPrice.toString()}
-                onValueChange={(e) => onUpdate(p => p.stopLossPrice = Number(e.value))}
-              >
-                <NumberInput.Control />
-                <NumberInput.Input onBlur={handleBlur} />
-              </NumberInput.Root>
+                onCommit={(raw) => {
+                  const next = Number(raw);
+                  if (!Number.isFinite(next)) return;
+                  onUpdate(p => {
+                    p.stopLossPrice = next;
+                    const setup = setups.find(s => s.id === p.setupId);
+                    if (setup) {
+                      p.recalculateRiskDriven(setup, accountBalance, { makerFee, takerFee });
+                    }
+                  });
+                }}
+              />
             </Field.Root>
           </GridItem>
           <GridItem colSpan={2}>
             <Field.Root>
               <Field.Label fontSize="xs" color="muted">Leverage (x)</Field.Label>
-              <NumberInput.Root
+              <NumberInput
+                key={`lev-${position.id}-${position.leverage || 1}`}
                 value={(position.leverage || 1).toString()}
                 min={1}
-                max={125}
-                onValueChange={(e) => onUpdate(p => p.leverage = Number(e.value) || 1)}
-              >
-                <NumberInput.Control />
-                <NumberInput.Input />
-              </NumberInput.Root>
+                onCommit={(raw) => {
+                  const nextRaw = Number(raw);
+                  const next = Number.isFinite(nextRaw)
+                    ? Math.min(125, Math.max(1, nextRaw))
+                    : 1;
+                  onUpdate(p => {
+                    p.leverage = next;
+                    const setup = setups.find(s => s.id === p.setupId);
+                    if (setup) {
+                      p.recalculateRiskDriven(setup, accountBalance, { makerFee, takerFee });
+                    }
+                  });
+                }}
+              />
             </Field.Root>
           </GridItem>
 
@@ -363,16 +377,24 @@ function PositionCard ({ position, setups, accountBalance, accountFees, onUpdate
               <Grid key={step.id} templateColumns="repeat(16, 1fr)" gap={1} mb={2} alignItems="center">
                 <GridItem colSpan={1} fontSize="sm">{idx + 1}</GridItem>
                 <GridItem colSpan={3}>
-                  <NumberInput.Root
+                  <NumberInput
+                    key={`step-${step.id}-${step.price}`}
                     size="sm"
                     w="90%"
                     value={step.price.toString()}
                     disabled={step.isFilled}
-                    onValueChange={(e) => onUpdate(p => { p.steps[idx].price = Number(e.value); })}
-                  >
-                    <NumberInput.Control />
-                    <NumberInput.Input onBlur={handleBlur} />
-                  </NumberInput.Root>
+                    onCommit={(raw) => {
+                      const next = Number(raw);
+                      if (!Number.isFinite(next)) return;
+                      onUpdate(p => {
+                        p.steps[idx].price = next;
+                        const setup = setups.find(s => s.id === p.setupId);
+                        if (setup) {
+                          p.recalculateRiskDriven(setup, accountBalance, { makerFee, takerFee });
+                        }
+                      });
+                    }}
+                  />
                 </GridItem>
                 <GridItem colSpan={3}>
                   <Text fontSize="sm" fontWeight="bold">{step.size.toFixed(4)}</Text>
@@ -446,21 +468,28 @@ function PositionCard ({ position, setups, accountBalance, accountFees, onUpdate
             <HStack justify="space-between">
               <HStack>
                 <Text fontSize="sm" color="muted">Realized PnL (Net)</Text>
-                <NumberInput.Root
+                <NumberInput
+                  key={`pnl-${position.id}-${position.pnl ?? ''}`}
                   size="sm"
                   w="140px"
                   value={position.pnl?.toString() ?? ''}
-                  onValueChange={(e) => onUpdate(p => {
-                    p.pnl = e.value === '' ? undefined : Number(e.value);
+                  onCommit={(raw) => onUpdate(p => {
+                    const trimmed = raw.trim();
+                    if (trimmed === '' || trimmed === '-' || trimmed === '.' || trimmed === '-.') {
+                      p.pnl = undefined;
+                      return;
+                    }
+                    const next = Number(trimmed);
+                    if (Number.isFinite(next)) {
+                      p.pnl = next;
+                    }
                   })}
-                >
-                  <NumberInput.Control />
-                  <NumberInput.Input
-                    aria-label="Realized PnL"
-                    color={position.pnl && position.pnl > 0 ? 'success' : 'danger'}
-                    fontWeight="bold"
-                  />
-                </NumberInput.Root>
+                  inputProps={{
+                    'aria-label': 'Realized PnL',
+                    color: position.pnl && position.pnl > 0 ? 'success' : 'danger',
+                    fontWeight: 'bold',
+                  }}
+                />
               </HStack>
               <Button
                 size="sm"

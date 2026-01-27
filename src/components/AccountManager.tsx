@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Button, Table, Input, NumberInput, VStack, HStack, Card, Heading, IconButton, Flex } from '@chakra-ui/react';
+import { Button, Table, Input, VStack, HStack, Card, Heading, IconButton, Flex } from '@chakra-ui/react';
 import { Trash, Plus, Save } from 'lucide-react';
 import { usePlanner } from '../hooks/usePlanner';
 import { AccountModel } from '../models/AccountModel';
+import { NumberInput } from './ui/NumberInput';
 
 export function AccountManager () {
   const { accounts, positions, addAccount, updateAccount, deleteAccount } = usePlanner();
@@ -82,13 +83,16 @@ export function AccountManager () {
                   </Table.Cell>
                   <Table.Cell textAlign="end">
                     {isEditing === account.id ? (
-                      <NumberInput.Root
-                        value={editData.initialBalance?.toString() ?? ''}
-                        onValueChange={(e) => setEditData({ ...editData, initialBalance: Number(e.value) })}
-                      >
-                        <NumberInput.Control />
-                        <NumberInput.Input />
-                      </NumberInput.Root>
+                      <NumberInput
+                        key={`initial-${editData.initialBalance ?? account.initialBalance}`}
+                        value={editData.initialBalance?.toString() ?? account.initialBalance.toString()}
+                        onCommit={(raw) => {
+                          const next = Number(raw);
+                          if (Number.isFinite(next)) {
+                            setEditData({ ...editData, initialBalance: next });
+                          }
+                        }}
+                      />
                     ) : account.initialBalance.toFixed(2)}
                   </Table.Cell>
                   <Table.Cell textAlign="end" color={account.currentBalance >= account.initialBalance ? 'success' : 'danger'}>
@@ -96,26 +100,32 @@ export function AccountManager () {
                   </Table.Cell>
                   <Table.Cell textAlign="end">
                     {isEditing === account.id ? (
-                      <NumberInput.Root
-                        value={editData.takerFee?.toString() ?? ''}
+                      <NumberInput
+                        key={`taker-${editData.takerFee ?? account.takerFee}`}
+                        value={editData.takerFee?.toString() ?? account.takerFee.toString()}
                         step={0.0001}
-                        onValueChange={(e) => setEditData({ ...editData, takerFee: Number(e.value) })}
-                      >
-                        <NumberInput.Control />
-                        <NumberInput.Input />
-                      </NumberInput.Root>
+                        onCommit={(raw) => {
+                          const next = Number(raw);
+                          if (Number.isFinite(next)) {
+                            setEditData({ ...editData, takerFee: next });
+                          }
+                        }}
+                      />
                     ) : (account.takerFee * 100).toFixed(4) + '%'}
                   </Table.Cell>
                   <Table.Cell textAlign="end">
                     {isEditing === account.id ? (
-                      <NumberInput.Root
-                        value={editData.makerFee?.toString() ?? ''}
+                      <NumberInput
+                        key={`maker-${editData.makerFee ?? account.makerFee}`}
+                        value={editData.makerFee?.toString() ?? account.makerFee.toString()}
                         step={0.0001}
-                        onValueChange={(e) => setEditData({ ...editData, makerFee: Number(e.value) })}
-                      >
-                        <NumberInput.Control />
-                        <NumberInput.Input />
-                      </NumberInput.Root>
+                        onCommit={(raw) => {
+                          const next = Number(raw);
+                          if (Number.isFinite(next)) {
+                            setEditData({ ...editData, makerFee: next });
+                          }
+                        }}
+                      />
                     ) : (account.makerFee * 100).toFixed(4) + '%'}
                   </Table.Cell>
                   <Table.Cell>

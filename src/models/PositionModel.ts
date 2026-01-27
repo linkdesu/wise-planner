@@ -47,7 +47,7 @@ export class PositionModel implements IPosition {
     this.setupId = setup.id;
 
     if (this.steps.length !== setup.resizingTimes) {
-      this.steps = Array.from({ length: setup.resizingTimes }, (_, i) => ({
+      this.steps = Array.from({ length: setup.resizingTimes }, (_) => ({
         id: crypto.randomUUID(),
         price: 0,
         size: 0,

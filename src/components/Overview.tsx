@@ -11,14 +11,13 @@ import {
   Badge,
   HStack,
   Button,
-  NumberInput,
-  Select,
   IconButton,
   createListCollection,
-  Portal
 } from '@chakra-ui/react';
 import { Trash } from 'lucide-react';
 import { usePlanner } from '../hooks/usePlanner';
+import { NumberInput } from './ui/NumberInput';
+import { MultiSelect } from './ui/MultiSelect';
 
 export function Overview () {
   const {
@@ -66,7 +65,6 @@ export function Overview () {
     : 0;
 
   const [historyPage, setHistoryPage] = useState(1);
-  const [draftPnL, setDraftPnL] = useState<Record<string, string>>({});
   const savedAccountIds = overviewHistoryPreferences.accountIds.filter(id => accountMap.has(id));
   const savedSetupIds = overviewHistoryPreferences.setupIds.filter(id => setupMap.has(id));
   const savedPerPage = Math.max(1, overviewHistoryPreferences.perPage || 10);
@@ -104,33 +102,28 @@ export function Overview () {
     currentPage * savedPerPage
   );
 
-  const handlePerPageChange = (value: string) => {
-    const parsed = Number(value);
+  const handlePerPageChange = (raw: string) => {
+    const parsed = Number(raw);
     const next = Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 1;
     setHistoryPage(1);
     updateOverviewHistoryPreferences({ perPage: next });
   };
 
-  const commitPnL = (positionId: string) => {
+  const commitPnL = (positionId: string, raw: string) => {
     const position = positions.find(p => p.id === positionId);
     if (!position) return;
-    const raw = draftPnL[positionId] ?? position.pnl?.toString() ?? '';
     const trimmed = raw.trim();
     if (trimmed === '' || trimmed === '-' || trimmed === '.' || trimmed === '-.') {
       position.pnl = undefined;
       updatePosition(position);
-      setDraftPnL(prev => ({ ...prev, [positionId]: '' }));
       return;
     }
     const nextValue = Number(trimmed);
     if (!Number.isFinite(nextValue)) {
-      // Revert to the last known good value if parsing fails.
-      setDraftPnL(prev => ({ ...prev, [positionId]: position.pnl?.toString() ?? '' }));
       return;
     }
     position.pnl = nextValue;
     updatePosition(position);
-    setDraftPnL(prev => ({ ...prev, [positionId]: nextValue.toString() }));
   };
 
   return (
@@ -243,17 +236,16 @@ export function Overview () {
       <Card.Root bg="surface" color="fg" borderColor="border">
         <Card.Body>
           <VStack align="stretch" gap={4}>
-            <HStack align="start" justify="space-between" gap={6} flexWrap="wrap">
+            <HStack align="start" gap={6} flexWrap="wrap">
               <VStack align="start" gap={2}>
                 <Text fontSize="sm" color="muted">Accounts</Text>
-                <Select.Root
-                  multiple
+                <MultiSelect
                   size="sm"
                   width="240px"
                   collection={accountCollection}
                   value={savedAccountIds.length === 0 ? ['__all'] : savedAccountIds}
-                  onValueChange={(e) => {
-                    const raw = e.value || [];
+                  placeholder="All accounts"
+                  onCommit={(raw) => {
                     const values = raw.length > 0 && raw[raw.length - 1] !== '__all'
                       ? raw.filter(v => v !== '__all')
                       : [];
@@ -264,38 +256,18 @@ export function Overview () {
                     }
                     updateOverviewHistoryPreferences({ accountIds: values });
                   }}
-                >
-                  <Select.Control>
-                    <Select.Trigger>
-                      <Select.ValueText placeholder="All accounts" />
-                      <Select.Indicator />
-                    </Select.Trigger>
-                  </Select.Control>
-                  <Portal>
-                    <Select.Positioner>
-                      <Select.Content bg="surface" color="fg" borderColor="border" boxShadow="lg" zIndex="dropdown">
-                        {accountCollection.items.map(item => (
-                          <Select.Item item={item} key={item.value}>
-                            <Select.ItemText>{item.label}</Select.ItemText>
-                            <Select.ItemIndicator />
-                          </Select.Item>
-                        ))}
-                      </Select.Content>
-                    </Select.Positioner>
-                  </Portal>
-                </Select.Root>
+                />
               </VStack>
 
               <VStack align="start" gap={2}>
                 <Text fontSize="sm" color="muted">Setups</Text>
-                <Select.Root
-                  multiple
+                <MultiSelect
                   size="sm"
                   width="240px"
                   collection={setupCollection}
                   value={savedSetupIds.length === 0 ? ['__all'] : savedSetupIds}
-                  onValueChange={(e) => {
-                    const raw = e.value || [];
+                  placeholder="All setups"
+                  onCommit={(raw) => {
                     const values = raw.length > 0 && raw[raw.length - 1] !== '__all'
                       ? raw.filter(v => v !== '__all')
                       : [];
@@ -306,41 +278,19 @@ export function Overview () {
                     }
                     updateOverviewHistoryPreferences({ setupIds: values });
                   }}
-                >
-                  <Select.HiddenSelect />
-                  <Select.Control>
-                    <Select.Trigger>
-                      <Select.ValueText placeholder="All setups" />
-                      <Select.Indicator />
-                    </Select.Trigger>
-                  </Select.Control>
-                  <Portal>
-                    <Select.Positioner>
-                      <Select.Content bg="surface" color="fg" borderColor="border" boxShadow="lg" zIndex="dropdown">
-                        {setupCollection.items.map(item => (
-                          <Select.Item item={item} key={item.value}>
-                            <Select.ItemText>{item.label}</Select.ItemText>
-                            <Select.ItemIndicator />
-                          </Select.Item>
-                        ))}
-                      </Select.Content>
-                    </Select.Positioner>
-                  </Portal>
-                </Select.Root>
+                />
               </VStack>
 
               <VStack align="start" gap={2}>
                 <Text fontSize="sm" color="muted">Per Page</Text>
-                <NumberInput.Root
+                <NumberInput
+                  key={`per-page-${savedPerPage}`}
                   size="sm"
                   w="120px"
                   min={1}
                   value={savedPerPage.toString()}
-                  onValueChange={(e) => handlePerPageChange(e.value)}
-                >
-                  <NumberInput.Control />
-                  <NumberInput.Input />
-                </NumberInput.Root>
+                  onCommit={handlePerPageChange}
+                />
               </VStack>
             </HStack>
 
@@ -380,28 +330,18 @@ export function Overview () {
                         <Table.Cell textAlign="end">{position.feeTotal ? `$${position.feeTotal.toFixed(4)}` : '-'}</Table.Cell>
                         <Table.Cell textAlign="end">
                           <HStack justify="flex-end">
-                            {/** Keep a draft string so users can type partial negatives like "-" and commit on blur/enter. */}
-                            <NumberInput.Root
+                            <NumberInput
+                              key={`pnl-${position.id}-${position.pnl ?? ''}`}
                               size="sm"
                               w="120px"
-                              value={draftPnL[position.id] ?? position.pnl?.toString() ?? ''}
-                              onValueChange={(e) => {
-                                setDraftPnL(prev => ({ ...prev, [position.id]: e.value }));
+                              value={position.pnl?.toString() ?? ''}
+                              onCommit={(raw) => commitPnL(position.id, raw)}
+                              inputProps={{
+                                color: position.pnl && position.pnl > 0 ? 'success' : 'danger',
+                                fontWeight: 'bold',
+                                textAlign: 'end',
                               }}
-                            >
-                              <NumberInput.Input
-                                color={position.pnl && position.pnl > 0 ? 'success' : 'danger'}
-                                fontWeight="bold"
-                                textAlign="end"
-                                onBlur={() => commitPnL(position.id)}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    commitPnL(position.id);
-                                    (e.currentTarget as HTMLInputElement).blur();
-                                  }
-                                }}
-                              />
-                            </NumberInput.Root>
+                            />
                           </HStack>
                         </Table.Cell>
                         <Table.Cell textAlign="end">

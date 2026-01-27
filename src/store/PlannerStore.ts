@@ -202,7 +202,7 @@ export class PlannerStore {
       this.accounts = accounts;
       this.setups = setups;
       this.positions = positions;
-      this.overviewHistoryPreferences = configs.find(c => c.id === 'overview-history')
+      this.overviewHistoryPreferences = configs.find((c: OverviewHistoryPreferencesModel) => c.id === 'overview-history')
         || new OverviewHistoryPreferencesModel();
       this.recalcAllAccounts();
       this.updateSnapshot();
