@@ -16,6 +16,7 @@
     "@emotion/react": "^11",
     "@emotion/styled": "^11",
     "dayjs": "^1.11.19",
+    "decimal.js": "^10.6.0",
     "idb": "^8.0.3",
     "lucide-react": "^0.563.0",
     "react": "^19.2.0",

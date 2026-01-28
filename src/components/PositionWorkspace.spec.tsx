@@ -5,7 +5,7 @@ import system from '../theme/monokai';
 import { PositionWorkspace } from './PositionWorkspace';
 import { PositionModel } from '../models/PositionModel';
 import { SetupModel } from '../models/SetupModel';
-import { toFixed, fromFixed, mulFixed, divFixed } from '../utils/fixedPoint';
+import Decimal from 'decimal.js';
 
 let plannerState: ReturnType<typeof createPlannerState>;
 const createPlannerState = () => {
@@ -53,47 +53,49 @@ const createPlannerState = () => {
 };
 
 const computeExpected = (stopLossPrice: number, riskAmount: number) => {
+  Decimal.set({ precision: 8, rounding: Decimal.ROUND_HALF_UP });
   const prices = [120, 110];
   const ratios = [1, 1];
-  const totalRatioFixed = ratios.reduce((sum, ratio) => sum + toFixed(ratio), 0n);
   const leverage = 1;
   const accountBalance = 10000;
 
-  let lossPerCostFixed = 0n;
+  const totalRatio = ratios.reduce((sum, ratio) => sum.plus(ratio), new Decimal(0));
+  let lossPerCost = new Decimal(0);
   prices.forEach((price, idx) => {
-    const ratioFixed = toFixed(ratios[idx]);
-    const normalizedRatioFixed = divFixed(ratioFixed, totalRatioFixed);
+    const ratioDec = new Decimal(ratios[idx]);
+    const normalizedRatio = ratioDec.div(totalRatio);
     const lossPerUnit = price - stopLossPrice;
-    const lossPerUnitFixed = toFixed(lossPerUnit);
-    const priceFixed = toFixed(price);
-    const lossPerPriceFixed = divFixed(lossPerUnitFixed, priceFixed);
-    lossPerCostFixed += mulFixed(normalizedRatioFixed, lossPerPriceFixed);
+    const lossPerUnitDec = new Decimal(lossPerUnit);
+    const priceDec = new Decimal(price);
+    const lossPerPrice = lossPerUnitDec.div(priceDec);
+    lossPerCost = lossPerCost.plus(normalizedRatio.times(lossPerPrice));
   });
 
-  let totalCostFixed = divFixed(toFixed(riskAmount), lossPerCostFixed);
-  const capFixed = mulFixed(toFixed(accountBalance), toFixed(leverage));
-  if (capFixed > 0n && totalCostFixed > capFixed) {
-    totalCostFixed = capFixed;
+  let totalCost = new Decimal(riskAmount).div(lossPerCost);
+  const cap = new Decimal(accountBalance).times(leverage);
+  if (cap.gt(0) && totalCost.gt(cap)) {
+    totalCost = cap;
   }
 
-  let totalSizeFixed = 0n;
-  let totalCostAccumFixed = 0n;
+  let totalSize = new Decimal(0);
+  let totalCostAccum = new Decimal(0);
   prices.forEach((price, idx) => {
-    const ratioFixed = toFixed(ratios[idx]);
-    const normalizedRatioFixed = divFixed(ratioFixed, totalRatioFixed);
-    const priceFixed = toFixed(price);
-    const stepCostFixed = mulFixed(totalCostFixed, normalizedRatioFixed);
-    const stepSizeFixed = divFixed(stepCostFixed, priceFixed);
-    totalSizeFixed += stepSizeFixed;
-    totalCostAccumFixed += stepCostFixed;
+    const ratioDec = new Decimal(ratios[idx]);
+    const normalizedRatio = ratioDec.div(totalRatio);
+    const priceDec = new Decimal(price);
+    const stepCost = totalCost.times(normalizedRatio);
+    const stepSize = stepCost.div(priceDec);
+    const stepCostFromSize = stepSize.times(priceDec);
+    totalSize = totalSize.plus(stepSize);
+    totalCostAccum = totalCostAccum.plus(stepCostFromSize);
   });
 
-  const totalSize = fromFixed(totalSizeFixed);
-  const totalCost = fromFixed(totalCostAccumFixed);
-  const predictedBE = totalSizeFixed > 0n ? fromFixed(divFixed(totalCostAccumFixed, totalSizeFixed)) : 0;
-  const marginEst = leverage > 0 ? totalCost / leverage : totalCost;
+  const totalSizeNumber = totalSize.toNumber();
+  const totalCostNumber = totalCostAccum.toNumber();
+  const predictedBE = totalSize.gt(0) ? totalCostAccum.div(totalSize).toNumber() : 0;
+  const marginEst = leverage > 0 ? totalCostNumber / leverage : totalCostNumber;
 
-  return { totalSize, totalCost, predictedBE, marginEst };
+  return { totalSize: totalSizeNumber, totalCost: totalCostNumber, predictedBE, marginEst };
 };
 
 vi.mock('../hooks/usePlanner', () => {

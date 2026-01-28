@@ -20,11 +20,14 @@ export function NumberInput ({
   ...rootProps
 }: NumberInputProps) {
   const [draft, setDraft] = useState(value ?? '');
-  const parsed = Number(draft);
+  const sanitize = (raw: string) => raw.replace(/[,_]/g, '');
+  const parsed = Number(sanitize(draft));
   const defaultColor = Number.isFinite(parsed) && parsed < 0 ? 'danger' : 'success';
 
   const commit = () => {
-    onCommit?.(draft);
+    const sanitized = sanitize(draft);
+    setDraft(sanitized);
+    onCommit?.(sanitized);
   };
 
   return (

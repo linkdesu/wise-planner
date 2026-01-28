@@ -172,7 +172,7 @@ function PositionCard ({ position, setups, allSetups, accountBalance, accountFee
   // Estimate margin
   const marginEst = position.getMarginEstimate ? position.getMarginEstimate() : 0;
   const totalSize = position.steps.reduce((sum, step) => sum + step.size, 0);
-  const totalCost = position.steps.reduce((sum, step) => sum + step.cost, 0);
+  const totalCost = position.steps.reduce((sum, step) => sum + (step.size * step.price), 0);
   const totalFees = position.feeTotal || 0;
   const marginUsagePct = accountBalance > 0
     ? (marginEst / accountBalance) * 100
@@ -342,7 +342,7 @@ function PositionCard ({ position, setups, allSetups, accountBalance, accountFee
                 {marginEst > 0 ? `$${marginEst.toFixed(4)}` : '-'}
               </Text>
               <Text fontSize="sm" fontWeight="bold" color="fg">
-                {marginEst > 0 ? `${marginUsagePct.toFixed(4)}%` : '-'}
+                {marginEst > 0 ? `${marginUsagePct.toFixed(2)}%` : '-'}
               </Text>
             </Field.Root>
           </GridItem>
@@ -367,7 +367,7 @@ function PositionCard ({ position, setups, allSetups, accountBalance, accountFee
           <GridItem colSpan={2}>
             <Field.Root>
               <Field.Label fontSize="xs" color="muted">Final Break Even</Field.Label>
-              <Text fontSize="xl" fontWeight="bold" color="info">{position.predictedBE?.toFixed(2) || '-'}</Text>
+              <Text fontSize="xl" fontWeight="bold" color="info">{position.predictedBE?.toFixed(4) || '-'}</Text>
             </Field.Root>
           </GridItem>
 
@@ -381,7 +381,7 @@ function PositionCard ({ position, setups, allSetups, accountBalance, accountFee
               <GridItem colSpan={3}>Size</GridItem>
               <GridItem colSpan={2}>Est. Cost</GridItem>
               <GridItem colSpan={2}>Fee</GridItem>
-              <GridItem colSpan={2}>Pred. BE</GridItem>
+              <GridItem colSpan={2}>Break Even</GridItem>
               <GridItem colSpan={2}>Order</GridItem>
               <GridItem colSpan={1}>Fill</GridItem>
             </Grid>
@@ -412,13 +412,13 @@ function PositionCard ({ position, setups, allSetups, accountBalance, accountFee
                   <Text fontSize="sm" fontWeight="bold">{step.size.toFixed(4)}</Text>
                 </GridItem>
                 <GridItem colSpan={2}>
-                  <Text fontSize="xs" color="muted">${step.cost.toFixed(0)}</Text>
+                  <Text fontSize="xs" color="muted">${step.cost.toFixed(4)}</Text>
                 </GridItem>
                 <GridItem colSpan={2}>
                   <Text fontSize="xs" color="warning">{step.fee ? `$${step.fee.toFixed(4)}` : '-'}</Text>
                 </GridItem>
                 <GridItem colSpan={2}>
-                  <Text fontSize="xs" color="info">{step.predictedBE?.toFixed(2) || '-'}</Text>
+                  <Text fontSize="xs" color="info">{step.predictedBE?.toFixed(4) || '-'}</Text>
                 </GridItem>
                 <GridItem colSpan={2}>
                   <Select.Root

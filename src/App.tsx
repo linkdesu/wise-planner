@@ -60,7 +60,7 @@ function App () {
     <ChakraProvider value={system}>
       <Box minH="100vh" bg="bg" color="fg" p={4}>
         <Flex justify="space-between" align="center" mb={6}>
-          <Heading size="lg" color="brand">Position Planner</Heading>
+          <Heading size="lg" color="brand">Wise Planner</Heading>
           <Flex gap={2}>
             {showDevTools && (
               <Button

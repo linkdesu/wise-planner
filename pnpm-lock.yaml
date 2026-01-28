@@ -20,6 +20,9 @@ importers:
       dayjs:
         specifier: ^1.11.19
         version: 1.11.19
+      decimal.js:
+        specifier: ^10.6.0
+        version: 10.6.0
       idb:
         specifier: ^8.0.3
         version: 8.0.3

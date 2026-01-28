@@ -1,5 +1,7 @@
+import Decimal from 'decimal.js';
 import type { IPosition, IResizingStep, PositionStatus, ISetup } from './types';
-import { toFixed, fromFixed, mulFixed, divFixed } from '../utils/fixedPoint';
+
+Decimal.set({ precision: 8, rounding: Decimal.ROUND_HALF_UP });
 
 export class PositionModel implements IPosition {
   id: string;
@@ -69,109 +71,116 @@ export class PositionModel implements IPosition {
     fees?: { makerFee: number; takerFee: number }
   ) {
     this.feeTotal = 0;
-    const totalRatioFixed = this._getTotalRatioFixed(setup);
-    if (totalRatioFixed === 0n) return;
+    const totalRatio = this._getTotalRatio(setup);
+    if (totalRatio.lte(0)) return;
 
-    const lossPerCostFixed = this._getLossPerCostFixed(setup, totalRatioFixed);
-    if (lossPerCostFixed <= 0n) return;
+    const lossPerCost = this._getLossPerCost(setup, totalRatio);
+    if (lossPerCost.lte(0)) return;
 
-    const totalCostFixed = this._getTotalCostFromRisk(accountBalance, lossPerCostFixed);
-    this._distributeCost(totalCostFixed, setup, totalRatioFixed, fees);
+    const totalCost = this._getTotalCostFromRisk(accountBalance, lossPerCost);
+    this._distributeCost(totalCost, setup, totalRatio, fees);
   }
 
-  private _getTotalRatioFixed (setup: ISetup): bigint {
-    return setup.resizingRatios.reduce((sum, ratio) => sum + toFixed(ratio), 0n);
+  private _getTotalRatio (setup: ISetup): Decimal {
+    return setup.resizingRatios.reduce((sum, ratio) => sum.plus(ratio), new Decimal(0));
   }
 
-  private _getLossPerCostFixed (setup: ISetup, totalRatioFixed: bigint): bigint {
-    if (totalRatioFixed === 0n) return 0n;
+  private _getLossPerCost (setup: ISetup, totalRatio: Decimal): Decimal {
+    if (totalRatio.lte(0)) return new Decimal(0);
 
-    let lossPerCostFixed = 0n;
+    let lossPerCost = new Decimal(0);
 
     this.steps.forEach((step, idx) => {
       const ratio = setup.resizingRatios[idx] || 0;
-      const ratioFixed = toFixed(ratio);
-      if (ratioFixed <= 0n || step.price <= 0) return;
-      const normalizedRatioFixed = divFixed(ratioFixed, totalRatioFixed);
-      if (normalizedRatioFixed <= 0n) return;
+      const ratioDec = new Decimal(ratio);
+      if (ratioDec.lte(0) || step.price <= 0) return;
+      const normalizedRatio = ratioDec.div(totalRatio);
+      if (normalizedRatio.lte(0)) return;
 
       const lossPerUnit = this.side === 'long'
         ? step.price - this.stopLossPrice
         : this.stopLossPrice - step.price;
 
-      const lossPerUnitFixed = toFixed(lossPerUnit);
-      const priceFixed = toFixed(step.price);
-      if (priceFixed === 0n) return;
-      const lossPerPriceFixed = divFixed(lossPerUnitFixed, priceFixed);
-      lossPerCostFixed += mulFixed(normalizedRatioFixed, lossPerPriceFixed);
+      const lossPerUnitDec = new Decimal(lossPerUnit);
+      const priceDec = new Decimal(step.price);
+      if (priceDec.lte(0)) return;
+      const lossPerPrice = lossPerUnitDec.div(priceDec);
+      lossPerCost = lossPerCost.plus(normalizedRatio.times(lossPerPrice));
     });
 
-    return lossPerCostFixed;
+    return lossPerCost;
   }
 
-  private _getTotalCostFromRisk (accountBalance: number, lossPerCostFixed: bigint): bigint {
-    if (lossPerCostFixed <= 0n || this.riskAmount <= 0) return 0n;
+  private _getTotalCostFromRisk (accountBalance: number, lossPerCost: Decimal): Decimal {
+    if (lossPerCost.lte(0) || this.riskAmount <= 0) return new Decimal(0);
 
-    let totalCostFixed = divFixed(toFixed(this.riskAmount), lossPerCostFixed);
+    let totalCost = new Decimal(this.riskAmount).div(lossPerCost);
 
     if (accountBalance > 0 && this.leverage > 0) {
-      const targetNotionalFixed = mulFixed(toFixed(accountBalance), toFixed(this.leverage));
-      if (targetNotionalFixed > 0n && totalCostFixed > targetNotionalFixed) {
-        totalCostFixed = targetNotionalFixed;
+      const targetNotional = new Decimal(accountBalance).times(this.leverage);
+      if (targetNotional.gt(0) && totalCost.gt(targetNotional)) {
+        totalCost = targetNotional;
       }
     }
 
-    return totalCostFixed;
+    return totalCost;
   }
 
   private _distributeCost (
-    totalCostFixed: bigint,
+    totalCost: Decimal,
     setup: ISetup,
-    totalRatioFixed: bigint,
+    totalRatio: Decimal,
     fees?: { makerFee: number; takerFee: number }
   ) {
-    if (totalCostFixed <= 0n || totalRatioFixed <= 0n) return;
+    if (totalCost.lte(0) || totalRatio.lte(0)) return;
 
-    let totalFilledSizeFixed = 0n;
-    let totalFilledCostFixed = 0n;
-    let totalFilledFeeFixed = 0n;
-    let cumSizeFixed = 0n;
-    let cumCostFixed = 0n;
+    let totalFilledSize = new Decimal(0);
+    let totalFilledCost = new Decimal(0);
+    let totalFilledFee = new Decimal(0);
+    let cumSize = new Decimal(0);
+    let cumCost = new Decimal(0);
 
     this.steps.forEach((step, idx) => {
+      console.log(` ==================== Step ${idx} ====================`)
       const ratio = setup.resizingRatios[idx] || 0;
-      const ratioFixed = toFixed(ratio);
-      const normalizedRatioFixed = totalRatioFixed > 0n ? divFixed(ratioFixed, totalRatioFixed) : 0n;
-      const priceFixed = toFixed(step.price);
+      const ratioDec = new Decimal(ratio);
+      const normalizedRatio = ratioDec.div(totalRatio);
+      console.log(`normalizedRatio: ${normalizedRatio} = ${ratioDec} / ${totalRatio}`)
+      const priceDec = new Decimal(step.price);
 
-      if (step.price <= 0 || normalizedRatioFixed <= 0n || priceFixed === 0n) return;
+      if (step.price <= 0 || normalizedRatio.lte(0) || priceDec.lte(0)) return;
 
-      const stepCostFixed = mulFixed(totalCostFixed, normalizedRatioFixed);
+      const stepCost = totalCost.times(normalizedRatio);
+      console.log(`stepCost: ${stepCost} = ${totalCost} x ${normalizedRatio}`)
       const feeRate = step.orderType === 'maker' ? (fees?.makerFee || 0) : (fees?.takerFee || 0);
-      const stepFeeFixed = mulFixed(stepCostFixed, toFixed(feeRate));
-      const stepSizeFixed = divFixed(stepCostFixed, priceFixed);
-      step.size = fromFixed(stepSizeFixed);
-      step.cost = fromFixed(stepCostFixed);
-      step.fee = fromFixed(stepFeeFixed);
+      const stepSize = stepCost.div(priceDec);
+      const stepCostFromSize = stepSize.times(priceDec);
+      console.log(`stepCostFromSize: ${stepCostFromSize} = ${stepSize} x ${priceDec}`)
+      const stepFee = stepCostFromSize.times(feeRate);
+      console.log(`stepFee: ${stepFee} = ${stepCostFromSize} x ${feeRate}`)
+      step.size = stepSize.toNumber();
+      step.cost = stepCostFromSize.toNumber();
+      step.fee = stepFee.toNumber();
 
-      cumSizeFixed += stepSizeFixed;
-      cumCostFixed += stepCostFixed + stepFeeFixed;
-      step.predictedBE = cumSizeFixed > 0n ? fromFixed(divFixed(cumCostFixed, cumSizeFixed)) : 0;
+      cumSize = cumSize.plus(stepSize);
+      cumCost = cumCost.plus(stepCostFromSize).plus(stepFee);
+      step.predictedBE = cumSize.gt(0) ? cumCost.div(cumSize).toNumber() : 0;
+      console.log(`step.predictedBE: ${step.predictedBE} = ${cumCost} / ${cumSize}`)
 
       if (step.isFilled) {
-        totalFilledSizeFixed += stepSizeFixed;
-        totalFilledCostFixed += stepCostFixed + stepFeeFixed;
-        totalFilledFeeFixed += stepFeeFixed;
+        totalFilledSize = totalFilledSize.plus(stepSize);
+        totalFilledCost = totalFilledCost.plus(stepCostFromSize).plus(stepFee);
+        totalFilledFee = totalFilledFee.plus(stepFee);
       }
     });
 
-    this.predictedBE = cumSizeFixed > 0n ? fromFixed(divFixed(cumCostFixed, cumSizeFixed)) : 0;
-    this.currentBE = totalFilledSizeFixed > 0n ? fromFixed(divFixed(totalFilledCostFixed, totalFilledSizeFixed)) : 0;
-    this.feeTotal = fromFixed(totalFilledFeeFixed);
+    this.predictedBE = cumSize.gt(0) ? cumCost.div(cumSize).toNumber() : 0;
+    this.currentBE = totalFilledSize.gt(0) ? totalFilledCost.div(totalFilledSize).toNumber() : 0;
+    this.feeTotal = totalFilledFee.toNumber();
   }
 
   getMarginEstimate (): number {
-    const totalCost = this.steps.reduce((sum, s) => sum + s.cost, 0);
+    const totalCost = this.steps.reduce((sum, step) => sum + (step.size * step.price), 0);
     return this.leverage > 0 ? totalCost / this.leverage : totalCost;
   }
 

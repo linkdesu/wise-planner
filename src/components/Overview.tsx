@@ -210,7 +210,7 @@ export function Overview () {
               <Table.Body>
                 {activePositions.map(({ position, accountName, setupName }) => {
                   const marginEstimate = position.getMarginEstimate ? position.getMarginEstimate() : 0;
-                  const notionalCost = position.steps.reduce((sum, step) => sum + step.cost, 0);
+                  const notionalCost = position.steps.reduce((sum, step) => sum + (step.size * step.price), 0);
                   return (
                     <Table.Row key={position.id}>
                       <Table.Cell fontWeight="bold" color="accentAlt">{position.symbol}</Table.Cell>
@@ -312,7 +312,7 @@ export function Overview () {
                 <Table.Body>
                   {pagedHistory.map(({ position, accountName, setupName }) => {
                     const marginEstimate = position.getMarginEstimate ? position.getMarginEstimate() : 0;
-                    const notionalCost = position.steps.reduce((sum, step) => sum + step.cost, 0);
+                    const notionalCost = position.steps.reduce((sum, step) => sum + (step.size * step.price), 0);
                     return (
                       <Table.Row key={position.id}>
                         <Table.Cell>{dayjs(position.closedAt || position.createdAt).format(DATETIME_Format)}</Table.Cell>
