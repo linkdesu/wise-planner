@@ -18,7 +18,7 @@ Instructions for AI coding assistants using OpenSpec for spec-driven development
 Create proposal when you need to:
 - Add features or functionality
 - Make breaking changes (API, schema)
-- Change architecture or patterns  
+- Change architecture or patterns
 - Optimize performance (changes behavior)
 - Update security patterns
 
@@ -41,7 +41,7 @@ Skip proposal for:
 - Tests for existing behavior
 
 **Workflow**
-1. Review `openspec/project.md`, `openspec list`, and `openspec list --specs` to understand current context.
+1. Review `openspec/project.md`, `openspec/specs-summary.md`, `openspec list`, and `openspec list --specs` to understand current context.
 2. Choose a unique verb-led `change-id` and scaffold `proposal.md`, `tasks.md`, optional `design.md`, and spec deltas under `openspec/changes/<id>/`.
 3. Draft spec deltas using `## ADDED|MODIFIED|REMOVED Requirements` with at least one `#### Scenario:` per requirement.
 4. Run `openspec validate <id> --strict` and resolve any issues before sharing the proposal.
@@ -71,6 +71,7 @@ After deployment, create separate PR to:
 - [ ] Read `openspec/project.md` for conventions
 - [ ] Run `openspec list` to see active changes
 - [ ] Run `openspec list --specs` to see existing capabilities
+- [ ] Read `openspec/specs-summary.md` to see existing capabilities
 
 **Before Creating Specs:**
 - Always check if capability already exists
@@ -125,6 +126,7 @@ openspec validate [change] --strict
 ```
 openspec/
 ├── project.md              # Project conventions
+├── specs-summary.md        # History specs summary
 ├── specs/                  # Current truth - what IS built
 │   └── [capability]/       # Single focused capability
 │       ├── spec.md         # Requirements and scenarios
@@ -147,7 +149,7 @@ openspec/
 ```
 New request?
 ├─ Bug fix restoring spec behavior? → Fix directly
-├─ Typo/format/comment? → Fix directly  
+├─ Typo/format/comment? → Fix directly
 ├─ New feature/capability? → Create proposal
 ├─ Breaking change? → Create proposal
 ├─ Architecture change? → Create proposal
