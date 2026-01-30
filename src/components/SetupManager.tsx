@@ -1,20 +1,43 @@
+import {
+  Box,
+  Button,
+  Card,
+  Dialog,
+  Flex,
+  Heading,
+  HStack,
+  IconButton,
+  Input,
+  Table,
+  Text,
+  Tooltip,
+  VStack,
+} from '@chakra-ui/react';
+import { Edit, Info, Plus, Save, Trash } from 'lucide-react';
 import { useState } from 'react';
-import { Button, Table, Input, VStack, HStack, Card, Heading, IconButton, Text, Tooltip, Flex, Box, Dialog } from '@chakra-ui/react';
-import { Trash, Plus, Save, Info, Edit } from 'lucide-react';
 import { usePlanner } from '../hooks/usePlanner';
 import { SetupModel } from '../models/SetupModel';
 
-export function SetupManager () {
+export function SetupManager() {
   const { setups, addSetup, updateSetup, deleteSetup } = usePlanner();
   const [isEditing, setIsEditing] = useState<string | null>(null);
-  const [editData, setEditData] = useState<{ id: string, name: string, resizingTimes: number, ratiosStr: string } | null>(null);
+  const [editData, setEditData] = useState<{
+    id: string;
+    name: string;
+    resizingTimes: number;
+    ratiosStr: string;
+  } | null>(null);
   const [pendingDeleteSetupId, setPendingDeleteSetupId] = useState<string | null>(null);
 
-  const activeSetups = setups.filter(setup => !setup.isDeleted);
-  const pendingDeleteSetup = setups.find(setup => setup.id === pendingDeleteSetupId) || null;
+  const activeSetups = setups.filter((setup) => !setup.isDeleted);
+  const pendingDeleteSetup = setups.find((setup) => setup.id === pendingDeleteSetupId) || null;
 
   const handleCreate = () => {
-    const newSetup = new SetupModel({ name: 'New Strategy', resizingTimes: 2, resizingRatios: [1, 1] });
+    const newSetup = new SetupModel({
+      name: 'New Strategy',
+      resizingTimes: 2,
+      resizingRatios: [1, 1],
+    });
     addSetup(newSetup);
     startEdit(newSetup);
   };
@@ -25,13 +48,16 @@ export function SetupManager () {
       id: setup.id,
       name: setup.name,
       resizingTimes: setup.resizingTimes,
-      ratiosStr: setup.resizingRatios.join(', ')
+      ratiosStr: setup.resizingRatios.join(', '),
     });
   };
 
   const saveEdit = () => {
     if (isEditing && editData) {
-      const ratios = editData.ratiosStr.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n) && n > 0);
+      const ratios = editData.ratiosStr
+        .split(',')
+        .map((s) => parseFloat(s.trim()))
+        .filter((n) => !isNaN(n) && n > 0);
 
       // Validation handled by model somewhat, but let's enforce times match logic
       // If user typed 3 ratios but kept times at 2, we update times?
@@ -43,7 +69,7 @@ export function SetupManager () {
         id: editData.id,
         name: editData.name,
         resizingTimes: times,
-        resizingRatios: ratios
+        resizingRatios: ratios,
       });
 
       // Ensure valid state
@@ -67,7 +93,9 @@ export function SetupManager () {
     >
       <VStack gap={6} align="stretch">
         <Flex justify="space-between" align="center">
-          <Heading size="md" color="accent">Resizing Setups</Heading>
+          <Heading size="md" color="accent">
+            Resizing Setups
+          </Heading>
           <Button onClick={handleCreate} color="success">
             <Plus size={16} />
             New Setup
@@ -80,7 +108,9 @@ export function SetupManager () {
               <Table.Header>
                 <Table.Row>
                   <Table.ColumnHeader color="muted">Strategy Name</Table.ColumnHeader>
-                  <Table.ColumnHeader color="muted" textAlign="center">Steps</Table.ColumnHeader>
+                  <Table.ColumnHeader color="muted" textAlign="center">
+                    Steps
+                  </Table.ColumnHeader>
                   <Table.ColumnHeader color="muted">
                     <HStack gap={2} justify="center">
                       <Text>Cost Ratios</Text>
@@ -91,7 +121,8 @@ export function SetupManager () {
                           </Box>
                         </Tooltip.Trigger>
                         <Tooltip.Content>
-                          Comma separated values relative to each other (e.g. '1, 1, 2' means 25%, 25%, 50% of notional cost)
+                          Comma separated values relative to each other (e.g. '1, 1, 2' means 25%,
+                          25%, 50% of notional cost)
                         </Tooltip.Content>
                       </Tooltip.Root>
                     </HStack>
@@ -100,37 +131,50 @@ export function SetupManager () {
                 </Table.Row>
               </Table.Header>
               <Table.Body>
-                {activeSetups.reverse().map(setup => (
+                {activeSetups.reverse().map((setup) => (
                   <Table.Row key={setup.id}>
                     <Table.Cell>
                       {isEditing === setup.id ? (
                         <Input
                           value={editData?.name}
-                          onChange={e => setEditData(prev => prev ? { ...prev, name: e.target.value } : null)}
+                          onChange={(e) =>
+                            setEditData((prev) => (prev ? { ...prev, name: e.target.value } : null))
+                          }
                         />
-                      ) : setup.name}
+                      ) : (
+                        setup.name
+                      )}
                     </Table.Cell>
-                    <Table.Cell textAlign="center">
-                      {setup.resizingTimes}
-                    </Table.Cell>
+                    <Table.Cell textAlign="center">{setup.resizingTimes}</Table.Cell>
                     <Table.Cell textAlign="center">
                       {isEditing === setup.id ? (
                         <Input
                           value={editData?.ratiosStr}
-                          onChange={e => setEditData(prev => prev ? { ...prev, ratiosStr: e.target.value } : null)}
+                          onChange={(e) =>
+                            setEditData((prev) =>
+                              prev ? { ...prev, ratiosStr: e.target.value } : null
+                            )
+                          }
                           placeholder="e.g. 1, 1, 2"
                         />
-                      ) : setup.resizingRatios.join(' : ')}
+                      ) : (
+                        setup.resizingRatios.join(' : ')
+                      )}
                     </Table.Cell>
                     <Table.Cell>
                       <HStack gap={2}>
                         {isEditing === setup.id ? (
-                          <Button size="sm" variant="ghost" color="success" onClick={saveEdit} >
+                          <Button size="sm" variant="ghost" color="success" onClick={saveEdit}>
                             <Save size={14} />
                             Save
                           </Button>
                         ) : (
-                          <Button size="sm" variant="ghost" color="info" onClick={() => startEdit(setup)}>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            color="info"
+                            onClick={() => startEdit(setup)}
+                          >
                             <Edit size={14} />
                             Edit
                           </Button>
@@ -156,10 +200,23 @@ export function SetupManager () {
           </Card.Body>
         </Card.Root>
 
-        <Box p={4} bg="surface" borderRadius="md" fontSize="sm" color="muted" borderColor="border" borderWidth="1px">
-          <Text fontWeight="bold" mb={2} color="accentAlt">Tip: Understanding Cost Ratios</Text>
+        <Box
+          p={4}
+          bg="surface"
+          borderRadius="md"
+          fontSize="sm"
+          color="muted"
+          borderColor="border"
+          borderWidth="1px"
+        >
+          <Text fontWeight="bold" mb={2} color="accentAlt">
+            Tip: Understanding Cost Ratios
+          </Text>
           <Text>Ratios determine how your total notional cost is distributed across entries.</Text>
-          <Text>Example: <b>1 : 1 : 2</b> means the first entry uses 1/4 of cost, second uses 1/4, and third uses 2/4 (50%).</Text>
+          <Text>
+            Example: <b>1 : 1 : 2</b> means the first entry uses 1/4 of cost, second uses 1/4, and
+            third uses 2/4 (50%).
+          </Text>
         </Box>
       </VStack>
 
@@ -172,7 +229,8 @@ export function SetupManager () {
           <Dialog.Body>
             <VStack align="start" gap={2}>
               <Text>
-                This will remove the setup{pendingDeleteSetup ? ` "${pendingDeleteSetup.name}"` : ''} from active use.
+                This will remove the setup
+                {pendingDeleteSetup ? ` "${pendingDeleteSetup.name}"` : ''} from active use.
               </Text>
             </VStack>
           </Dialog.Body>

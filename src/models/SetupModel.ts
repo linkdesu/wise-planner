@@ -7,7 +7,7 @@ export class SetupModel implements ISetup {
   resizingRatios: number[];
   isDeleted: boolean;
 
-  constructor (data: Partial<ISetup> = {}) {
+  constructor(data: Partial<ISetup> = {}) {
     this.id = data.id || crypto.randomUUID();
     this.name = data.name || 'Default Setup';
     this.resizingTimes = data.resizingTimes || 1;
@@ -26,12 +26,12 @@ export class SetupModel implements ISetup {
     }
   }
 
-  static fromJSON (json: string): SetupModel {
+  static fromJSON(json: string): SetupModel {
     const data = JSON.parse(json);
     return new SetupModel(data);
   }
 
-  toJSON (): ISetup {
+  toJSON(): ISetup {
     return {
       id: this.id,
       name: this.name,
@@ -41,7 +41,7 @@ export class SetupModel implements ISetup {
     };
   }
 
-  validate (): boolean {
+  validate(): boolean {
     return (
       this.resizingTimes > 0 &&
       this.resizingRatios.length === this.resizingTimes &&

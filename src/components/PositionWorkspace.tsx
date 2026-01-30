@@ -1,31 +1,44 @@
-import { useState } from 'react';
 import {
-  Box, Button, Select, VStack, HStack, Card,
-  Text, Badge, Grid, GridItem, Field, Input,
-  Separator, Checkbox,
-  IconButton, Switch,
-  Heading, createListCollection
+  Badge,
+  Box,
+  Button,
+  Card,
+  Checkbox,
+  Field,
+  Grid,
+  GridItem,
+  HStack,
+  Heading,
+  IconButton,
+  Input,
+  Select,
+  Separator,
+  Switch,
+  Text,
+  VStack,
+  createListCollection,
 } from '@chakra-ui/react';
 import { Plus, Trash } from 'lucide-react';
+import { useState } from 'react';
 import { usePlanner } from '../hooks/usePlanner';
 import { PositionModel } from '../models/PositionModel';
 import { SetupModel } from '../models/SetupModel';
 import type { OrderType } from '../models/types';
 import { NumberInput } from './ui/NumberInput';
 
-export function PositionWorkspace () {
+export function PositionWorkspace() {
   const { accounts, setups, positions, addPosition, updatePosition, deletePosition } = usePlanner();
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
-  const activeSetups = setups.filter(setup => !setup.isDeleted);
+  const activeSetups = setups.filter((setup) => !setup.isDeleted);
 
   // Derived state: Use selected or default to first
   const activeAccountId = selectedAccountId || accounts[0]?.id;
-  const currentAccount = accounts.find(a => a.id === activeAccountId);
+  const currentAccount = accounts.find((a) => a.id === activeAccountId);
 
   // Filter positions for active account
-  const accountPositions = positions.filter(p => p.accountId === activeAccountId);
+  const accountPositions = positions.filter((p) => p.accountId === activeAccountId);
   const accountCollection = createListCollection({
-    items: accounts.map(a => ({ label: a.name, value: a.id })),
+    items: accounts.map((a) => ({ label: a.name, value: a.id })),
   });
 
   const handleAddPosition = () => {
@@ -35,7 +48,7 @@ export function PositionWorkspace () {
       status: 'planning',
       accountId: currentAccount.id,
       riskAmount: 100,
-      leverage: 1
+      leverage: 1,
     });
     // Apply default setup if available
     if (activeSetups.length > 0) {
@@ -55,7 +68,7 @@ export function PositionWorkspace () {
   };
 
   const handleUpdatePosition = (posId: string, updates: (p: PositionModel) => void) => {
-    const pos = accountPositions.find(p => p.id === posId);
+    const pos = accountPositions.find((p) => p.id === posId);
     if (pos) {
       updates(pos);
       updatePosition(pos);
@@ -66,11 +79,13 @@ export function PositionWorkspace () {
     return <Box>Please create an account first.</Box>;
   }
 
-  const activePositions = accountPositions.filter(p => p.status !== 'closed');
+  const activePositions = accountPositions.filter((p) => p.status !== 'closed');
 
   return (
     <VStack gap={6} align="stretch">
-      <Heading size="md" color="accent" h="40px" display="flex" alignItems="center">Position Workspace</Heading>
+      <Heading size="md" color="accent" h="40px" display="flex" alignItems="center">
+        Position Workspace
+      </Heading>
 
       <HStack justify="space-between">
         <HStack>
@@ -90,7 +105,7 @@ export function PositionWorkspace () {
             </Select.Control>
             <Select.Positioner>
               <Select.Content bg="surface" color="fg" borderColor="border">
-                {accountCollection.items.map(item => (
+                {accountCollection.items.map((item) => (
                   <Select.Item item={item} key={item.value}>
                     <Select.ItemText>{item.label}</Select.ItemText>
                   </Select.Item>
@@ -111,9 +126,13 @@ export function PositionWorkspace () {
       </HStack>
 
       <Box>
-        {activePositions.length === 0 && <Text color="muted" textAlign="center">No active positions.</Text>}
+        {activePositions.length === 0 && (
+          <Text color="muted" textAlign="center">
+            No active positions.
+          </Text>
+        )}
         <VStack align="stretch" gap={4}>
-          {activePositions.reverse().map(pos => (
+          {activePositions.reverse().map((pos) => (
             <PositionCard
               key={pos.id}
               position={pos}
@@ -127,26 +146,33 @@ export function PositionWorkspace () {
           ))}
         </VStack>
       </Box>
-
     </VStack>
   );
 }
 
 // --- Sub-components ---
 
-function PositionCard ({ position, setups, allSetups, accountBalance, accountFees, onUpdate, onDelete }: {
-  position: PositionModel,
-  setups: SetupModel[],
-  allSetups: SetupModel[],
-  accountBalance: number,
-  accountFees: { makerFee: number; takerFee: number },
-  onUpdate: (fn: (p: PositionModel) => void) => void,
-  onDelete: () => void
+function PositionCard({
+  position,
+  setups,
+  allSetups,
+  accountBalance,
+  accountFees,
+  onUpdate,
+  onDelete,
+}: {
+  position: PositionModel;
+  setups: SetupModel[];
+  allSetups: SetupModel[];
+  accountBalance: number;
+  accountFees: { makerFee: number; takerFee: number };
+  onUpdate: (fn: (p: PositionModel) => void) => void;
+  onDelete: () => void;
 }) {
   const { makerFee, takerFee } = accountFees;
-  const allSetupsMap = new Map(allSetups.map(setup => [setup.id, setup]));
+  const allSetupsMap = new Map(allSetups.map((setup) => [setup.id, setup]));
   const setupCollection = createListCollection({
-    items: setups.map(s => ({ label: s.name, value: s.id })),
+    items: setups.map((s) => ({ label: s.name, value: s.id })),
   });
   const orderTypeCollection = createListCollection({
     items: [
@@ -155,9 +181,9 @@ function PositionCard ({ position, setups, allSetups, accountBalance, accountFee
     ],
   });
   const handleSetupChange = (setupId: string) => {
-    const setup = setups.find(s => s.id === setupId);
+    const setup = setups.find((s) => s.id === setupId);
     if (setup) {
-      onUpdate(p => {
+      onUpdate((p) => {
         p.applySetup(setup);
         p.recalculateRiskDriven(setup, accountBalance, { makerFee, takerFee });
       });
@@ -172,11 +198,9 @@ function PositionCard ({ position, setups, allSetups, accountBalance, accountFee
   // Estimate margin
   const marginEst = position.getMarginEstimate ? position.getMarginEstimate() : 0;
   const totalSize = position.steps.reduce((sum, step) => sum + step.size, 0);
-  const totalCost = position.steps.reduce((sum, step) => sum + (step.size * step.price), 0);
+  const totalCost = position.steps.reduce((sum, step) => sum + step.size * step.price, 0);
   const totalFees = position.feeTotal || 0;
-  const marginUsagePct = accountBalance > 0
-    ? (marginEst / accountBalance) * 100
-    : 0;
+  const marginUsagePct = accountBalance > 0 ? (marginEst / accountBalance) * 100 : 0;
   const canClose = position.pnl !== undefined && !Number.isNaN(position.pnl);
 
   return (
@@ -205,10 +229,10 @@ function PositionCard ({ position, setups, allSetups, accountBalance, accountFee
                   <Switch.Root
                     checked={position.side === 'short'}
                     onCheckedChange={(e) => {
-                      onUpdate(p => {
+                      onUpdate((p) => {
                         p.side = e.checked ? 'short' : 'long';
                         // Recalculate immediately on side switch as Risk/SL relationship inverts
-                        const setup = setups.find(s => s.id === p.setupId);
+                        const setup = setups.find((s) => s.id === p.setupId);
                         if (setup) {
                           p.recalculateRiskDriven(setup, accountBalance, { makerFee, takerFee });
                         }
@@ -224,7 +248,7 @@ function PositionCard ({ position, setups, allSetups, accountBalance, accountFee
 
                 <Input
                   value={position.symbol}
-                  onChange={e => onUpdate(p => p.symbol = e.target.value.toUpperCase())}
+                  onChange={(e) => onUpdate((p) => (p.symbol = e.target.value.toUpperCase()))}
                   w="180px"
                   placeholder="SYMBOL"
                   fontWeight="bold"
@@ -244,7 +268,7 @@ function PositionCard ({ position, setups, allSetups, accountBalance, accountFee
                   </Select.Control>
                   <Select.Positioner>
                     <Select.Content bg="surface" color="fg" borderColor="border" boxShadow="lg">
-                      {setupCollection.items.map(item => (
+                      {setupCollection.items.map((item) => (
                         <Select.Item item={item} key={item.value}>
                           <Select.ItemText>{item.label}</Select.ItemText>
                         </Select.Item>
@@ -257,30 +281,43 @@ function PositionCard ({ position, setups, allSetups, accountBalance, accountFee
                     Deleted setup: {deletedSetup?.name || 'Unknown'}
                   </Text>
                 )}
-                <Badge bg={isOpened ? 'success' : 'brand'} color="bg">{position.status.toUpperCase()}</Badge>
+                <Badge bg={isOpened ? 'success' : 'brand'} color="bg">
+                  {position.status.toUpperCase()}
+                </Badge>
               </HStack>
               <HStack>
-                <IconButton aria-label="Delete" size="sm" px="3" onClick={onDelete} variant="ghost" color="danger">
+                <IconButton
+                  aria-label="Delete"
+                  size="sm"
+                  px="3"
+                  onClick={onDelete}
+                  variant="ghost"
+                  color="danger"
+                >
                   <Trash size={14} /> Delete
                 </IconButton>
               </HStack>
             </HStack>
           </GridItem>
 
-          <GridItem colSpan={12}><Separator my={2} borderColor="borderSubtle" /></GridItem>
+          <GridItem colSpan={12}>
+            <Separator my={2} borderColor="borderSubtle" />
+          </GridItem>
 
           <GridItem colSpan={2}>
             <Field.Root>
-              <Field.Label fontSize="xs" color="muted">Risk Amount ($)</Field.Label>
+              <Field.Label fontSize="xs" color="muted">
+                Risk Amount ($)
+              </Field.Label>
               <NumberInput
                 key={`risk-${position.id}-${position.riskAmount}`}
                 value={position.riskAmount.toString()}
                 onCommit={(raw) => {
                   const next = Number(raw);
                   if (!Number.isFinite(next)) return;
-                  onUpdate(p => {
+                  onUpdate((p) => {
                     p.riskAmount = next;
-                    const setup = setups.find(s => s.id === p.setupId);
+                    const setup = setups.find((s) => s.id === p.setupId);
                     if (setup) {
                       p.recalculateRiskDriven(setup, accountBalance, { makerFee, takerFee });
                     }
@@ -291,16 +328,18 @@ function PositionCard ({ position, setups, allSetups, accountBalance, accountFee
           </GridItem>
           <GridItem colSpan={2}>
             <Field.Root>
-              <Field.Label fontSize="xs" color="muted">Stop Loss Price</Field.Label>
+              <Field.Label fontSize="xs" color="muted">
+                Stop Loss Price
+              </Field.Label>
               <NumberInput
                 key={`sl-${position.id}-${position.stopLossPrice}`}
                 value={position.stopLossPrice.toString()}
                 onCommit={(raw) => {
                   const next = Number(raw);
                   if (!Number.isFinite(next)) return;
-                  onUpdate(p => {
+                  onUpdate((p) => {
                     p.stopLossPrice = next;
-                    const setup = setups.find(s => s.id === p.setupId);
+                    const setup = setups.find((s) => s.id === p.setupId);
                     if (setup) {
                       p.recalculateRiskDriven(setup, accountBalance, { makerFee, takerFee });
                     }
@@ -311,19 +350,19 @@ function PositionCard ({ position, setups, allSetups, accountBalance, accountFee
           </GridItem>
           <GridItem colSpan={2}>
             <Field.Root>
-              <Field.Label fontSize="xs" color="muted">Leverage (x)</Field.Label>
+              <Field.Label fontSize="xs" color="muted">
+                Leverage (x)
+              </Field.Label>
               <NumberInput
                 key={`lev-${position.id}-${position.leverage || 1}`}
                 value={(position.leverage || 1).toString()}
                 min={1}
                 onCommit={(raw) => {
                   const nextRaw = Number(raw);
-                  const next = Number.isFinite(nextRaw)
-                    ? Math.min(125, Math.max(1, nextRaw))
-                    : 1;
-                  onUpdate(p => {
+                  const next = Number.isFinite(nextRaw) ? Math.min(125, Math.max(1, nextRaw)) : 1;
+                  onUpdate((p) => {
                     p.leverage = next;
-                    const setup = setups.find(s => s.id === p.setupId);
+                    const setup = setups.find((s) => s.id === p.setupId);
                     if (setup) {
                       p.recalculateRiskDriven(setup, accountBalance, { makerFee, takerFee });
                     }
@@ -333,11 +372,15 @@ function PositionCard ({ position, setups, allSetups, accountBalance, accountFee
             </Field.Root>
           </GridItem>
 
-          <GridItem colSpan={12}><Separator my={2} borderColor="borderSubtle" /></GridItem>
+          <GridItem colSpan={12}>
+            <Separator my={2} borderColor="borderSubtle" />
+          </GridItem>
 
           <GridItem colSpan={2}>
             <Field.Root>
-              <Field.Label fontSize="xs" color="muted">Margin</Field.Label>
+              <Field.Label fontSize="xs" color="muted">
+                Margin
+              </Field.Label>
               <Text fontSize="xl" fontWeight="bold" color="brand">
                 {marginEst > 0 ? `$${marginEst.toFixed(4)}` : '-'}
               </Text>
@@ -348,33 +391,50 @@ function PositionCard ({ position, setups, allSetups, accountBalance, accountFee
           </GridItem>
           <GridItem colSpan={2}>
             <Field.Root>
-              <Field.Label fontSize="xs" color="muted">Notional Cost</Field.Label>
-              <Text fontSize="xl" fontWeight="bold" color="fg">{totalCost > 0 ? `$${totalCost.toFixed(4)}` : '-'}</Text>
+              <Field.Label fontSize="xs" color="muted">
+                Notional Cost
+              </Field.Label>
+              <Text fontSize="xl" fontWeight="bold" color="fg">
+                {totalCost > 0 ? `$${totalCost.toFixed(4)}` : '-'}
+              </Text>
             </Field.Root>
           </GridItem>
           <GridItem colSpan={2}>
             <Field.Root>
-              <Field.Label fontSize="xs" color="muted">Paid Fees</Field.Label>
-              <Text fontSize="xl" fontWeight="bold" color="warning">{totalFees > 0 ? `$${totalFees.toFixed(4)}` : '-'}</Text>
+              <Field.Label fontSize="xs" color="muted">
+                Paid Fees
+              </Field.Label>
+              <Text fontSize="xl" fontWeight="bold" color="warning">
+                {totalFees > 0 ? `$${totalFees.toFixed(4)}` : '-'}
+              </Text>
             </Field.Root>
           </GridItem>
           <GridItem colSpan={2}>
             <Field.Root>
-              <Field.Label fontSize="xs" color="muted">Total Size (Base Asset)</Field.Label>
-              <Text fontSize="xl" fontWeight="bold" color="fg">{totalSize > 0 ? totalSize.toFixed(4) : '-'}</Text>
+              <Field.Label fontSize="xs" color="muted">
+                Total Size (Base Asset)
+              </Field.Label>
+              <Text fontSize="xl" fontWeight="bold" color="fg">
+                {totalSize > 0 ? totalSize.toFixed(4) : '-'}
+              </Text>
             </Field.Root>
           </GridItem>
           <GridItem colSpan={2}>
             <Field.Root>
-              <Field.Label fontSize="xs" color="muted">Final Break Even</Field.Label>
-              <Text fontSize="xl" fontWeight="bold" color="info">{position.predictedBE?.toFixed(4) || '-'}</Text>
+              <Field.Label fontSize="xs" color="muted">
+                Final Break Even
+              </Field.Label>
+              <Text fontSize="xl" fontWeight="bold" color="info">
+                {position.predictedBE?.toFixed(4) || '-'}
+              </Text>
             </Field.Root>
           </GridItem>
-
 
           {/* Resizing Steps Table */}
           <GridItem colSpan={12}>
-            <Text fontSize="sm" fontWeight="bold" mb={2} color="accentAlt">Resizing Steps (Calculated)</Text>
+            <Text fontSize="sm" fontWeight="bold" mb={2} color="accentAlt">
+              Resizing Steps (Calculated)
+            </Text>
             <Grid templateColumns="repeat(16, 1fr)" gap={1} mb={2} fontSize="xs" color="muted">
               <GridItem colSpan={1}>#</GridItem>
               <GridItem colSpan={3}>Price</GridItem>
@@ -386,8 +446,16 @@ function PositionCard ({ position, setups, allSetups, accountBalance, accountFee
               <GridItem colSpan={1}>Fill</GridItem>
             </Grid>
             {position.steps.map((step, idx) => (
-              <Grid key={step.id} templateColumns="repeat(16, 1fr)" gap={1} mb={2} alignItems="center">
-                <GridItem colSpan={1} fontSize="sm">{idx + 1}</GridItem>
+              <Grid
+                key={step.id}
+                templateColumns="repeat(16, 1fr)"
+                gap={1}
+                mb={2}
+                alignItems="center"
+              >
+                <GridItem colSpan={1} fontSize="sm">
+                  {idx + 1}
+                </GridItem>
                 <GridItem colSpan={3}>
                   <NumberInput
                     key={`step-${step.id}-${step.price}`}
@@ -398,9 +466,9 @@ function PositionCard ({ position, setups, allSetups, accountBalance, accountFee
                     onCommit={(raw) => {
                       const next = Number(raw);
                       if (!Number.isFinite(next)) return;
-                      onUpdate(p => {
+                      onUpdate((p) => {
                         p.steps[idx].price = next;
-                        const setup = setups.find(s => s.id === p.setupId);
+                        const setup = setups.find((s) => s.id === p.setupId);
                         if (setup) {
                           p.recalculateRiskDriven(setup, accountBalance, { makerFee, takerFee });
                         }
@@ -409,29 +477,39 @@ function PositionCard ({ position, setups, allSetups, accountBalance, accountFee
                   />
                 </GridItem>
                 <GridItem colSpan={3}>
-                  <Text fontSize="sm" fontWeight="bold">{step.size.toFixed(6)}</Text>
+                  <Text fontSize="sm" fontWeight="bold">
+                    {step.size.toFixed(6)}
+                  </Text>
                 </GridItem>
                 <GridItem colSpan={2}>
-                  <Text fontSize="xs" color="muted">${step.cost.toFixed(4)}</Text>
+                  <Text fontSize="xs" color="muted">
+                    ${step.cost.toFixed(4)}
+                  </Text>
                 </GridItem>
                 <GridItem colSpan={2}>
-                  <Text fontSize="xs" color="warning">{step.fee ? `$${step.fee.toFixed(4)}` : '-'}</Text>
+                  <Text fontSize="xs" color="warning">
+                    {step.fee ? `$${step.fee.toFixed(4)}` : '-'}
+                  </Text>
                 </GridItem>
                 <GridItem colSpan={2}>
-                  <Text fontSize="xs" color="info">{step.predictedBE?.toFixed(4) || '-'}</Text>
+                  <Text fontSize="xs" color="info">
+                    {step.predictedBE?.toFixed(4) || '-'}
+                  </Text>
                 </GridItem>
                 <GridItem colSpan={2}>
                   <Select.Root
                     size="xs"
                     collection={orderTypeCollection}
                     value={[step.orderType]}
-                    onValueChange={(e) => onUpdate(p => {
-                      p.steps[idx].orderType = (e.value[0] || 'taker') as OrderType;
-                      const setup = setups.find(s => s.id === p.setupId);
-                      if (setup) {
-                        p.recalculateRiskDriven(setup, accountBalance, { makerFee, takerFee });
-                      }
-                    })}
+                    onValueChange={(e) =>
+                      onUpdate((p) => {
+                        p.steps[idx].orderType = (e.value[0] || 'taker') as OrderType;
+                        const setup = setups.find((s) => s.id === p.setupId);
+                        if (setup) {
+                          p.recalculateRiskDriven(setup, accountBalance, { makerFee, takerFee });
+                        }
+                      })
+                    }
                   >
                     <Select.Control>
                       <Select.Trigger>
@@ -441,7 +519,7 @@ function PositionCard ({ position, setups, allSetups, accountBalance, accountFee
                     </Select.Control>
                     <Select.Positioner>
                       <Select.Content bg="surface" color="fg" borderColor="border" boxShadow="lg">
-                        {orderTypeCollection.items.map(item => (
+                        {orderTypeCollection.items.map((item) => (
                           <Select.Item item={item} key={item.value}>
                             <Select.ItemText>{item.label}</Select.ItemText>
                           </Select.Item>
@@ -454,18 +532,20 @@ function PositionCard ({ position, setups, allSetups, accountBalance, accountFee
                   <Checkbox.Root
                     checked={step.isFilled}
                     colorPalette="green"
-                    onCheckedChange={(e) => onUpdate(p => {
-                      p.steps[idx].isFilled = !!e.checked;
-                      // Logic: If any step is filled, status must be OPENED
-                      if (e.checked && p.status === 'planning') {
-                        p.status = 'opened';
-                      }
+                    onCheckedChange={(e) =>
+                      onUpdate((p) => {
+                        p.steps[idx].isFilled = !!e.checked;
+                        // Logic: If any step is filled, status must be OPENED
+                        if (e.checked && p.status === 'planning') {
+                          p.status = 'opened';
+                        }
 
-                      const setup = setups.find(s => s.id === p.setupId);
-                      if (setup) {
-                        p.recalculateRiskDriven(setup, accountBalance, { makerFee, takerFee });
-                      }
-                    })}
+                        const setup = setups.find((s) => s.id === p.setupId);
+                        if (setup) {
+                          p.recalculateRiskDriven(setup, accountBalance, { makerFee, takerFee });
+                        }
+                      })
+                    }
                   >
                     <Checkbox.HiddenInput />
                     <Checkbox.Control />
@@ -479,23 +559,32 @@ function PositionCard ({ position, setups, allSetups, accountBalance, accountFee
             <Separator my={3} borderColor="borderSubtle" />
             <HStack justify="space-between">
               <HStack>
-                <Text fontSize="sm" color="muted">Realized PnL (Net)</Text>
+                <Text fontSize="sm" color="muted">
+                  Realized PnL (Net)
+                </Text>
                 <NumberInput
                   key={`pnl-${position.id}-${position.pnl ?? ''}`}
                   size="sm"
                   w="140px"
                   value={position.pnl?.toString() ?? ''}
-                  onCommit={(raw) => onUpdate(p => {
-                    const trimmed = raw.trim();
-                    if (trimmed === '' || trimmed === '-' || trimmed === '.' || trimmed === '-.') {
-                      p.pnl = undefined;
-                      return;
-                    }
-                    const next = Number(trimmed);
-                    if (Number.isFinite(next)) {
-                      p.pnl = next;
-                    }
-                  })}
+                  onCommit={(raw) =>
+                    onUpdate((p) => {
+                      const trimmed = raw.trim();
+                      if (
+                        trimmed === '' ||
+                        trimmed === '-' ||
+                        trimmed === '.' ||
+                        trimmed === '-.'
+                      ) {
+                        p.pnl = undefined;
+                        return;
+                      }
+                      const next = Number(trimmed);
+                      if (Number.isFinite(next)) {
+                        p.pnl = next;
+                      }
+                    })
+                  }
                   inputProps={{
                     'aria-label': 'Realized PnL',
                     color: position.pnl && position.pnl > 0 ? 'success' : 'danger',
@@ -509,10 +598,12 @@ function PositionCard ({ position, setups, allSetups, accountBalance, accountFee
                 color="bg"
                 _hover={{ bg: 'accentAlt', color: 'bg' }}
                 disabled={!canClose}
-                onClick={() => onUpdate(p => {
-                  p.status = 'closed';
-                  p.closedAt = Date.now();
-                })}
+                onClick={() =>
+                  onUpdate((p) => {
+                    p.status = 'closed';
+                    p.closedAt = Date.now();
+                  })
+                }
               >
                 Close
               </Button>

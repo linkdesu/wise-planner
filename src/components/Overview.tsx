@@ -1,28 +1,28 @@
-import dayjs from 'dayjs'
-import { useEffect, useState } from 'react';
 import {
+  Badge,
+  Button,
+  Card,
+  createListCollection,
   Grid,
   GridItem,
-  Card,
-  Text,
   Heading,
-  VStack,
+  HStack,
+  IconButton,
+  Pagination,
   Stat,
   Table,
-  Badge,
-  HStack,
-  Button,
-  IconButton,
-  createListCollection,
-  Pagination,
+  Text,
+  VStack,
 } from '@chakra-ui/react';
-import { Trash, ChevronRight, ChevronLeft } from 'lucide-react';
-import { usePlanner } from '../hooks/usePlanner';
-import { NumberInput } from './ui/NumberInput';
-import { MultiSelect } from './ui/MultiSelect';
+import dayjs from 'dayjs';
+import { ChevronLeft, ChevronRight, Trash } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { DATETIME_Format, OVERVIEW_HISTORY_PER_PAGE_KEY } from '../const';
+import { usePlanner } from '../hooks/usePlanner';
+import { MultiSelect } from './ui/MultiSelect';
+import { NumberInput } from './ui/NumberInput';
 
-export function Overview () {
+export function Overview() {
   const {
     accounts,
     setups,
@@ -39,35 +39,39 @@ export function Overview () {
   const totalPnL = totalEquity - totalInitial;
   const pnlPercent = totalInitial > 0 ? (totalPnL / totalInitial) * 100 : 0;
 
-  const activeSetups = setups.filter(setup => !setup.isDeleted);
-  const accountMap = new Map(accounts.map(account => [account.id, account]));
-  const setupMap = new Map(setups.map(setup => [setup.id, setup]));
-  const activeSetupMap = new Map(activeSetups.map(setup => [setup.id, setup]));
+  const activeSetups = setups.filter((setup) => !setup.isDeleted);
+  const accountMap = new Map(accounts.map((account) => [account.id, account]));
+  const setupMap = new Map(setups.map((setup) => [setup.id, setup]));
+  const activeSetupMap = new Map(activeSetups.map((setup) => [setup.id, setup]));
   const accountCollection = createListCollection({
     items: [
       { label: 'All', value: '__all' },
-      ...accounts.map(account => ({ label: account.name, value: account.id })),
+      ...accounts.map((account) => ({ label: account.name, value: account.id })),
     ],
   });
   const setupCollection = createListCollection({
     items: [
       { label: 'All', value: '__all' },
-      ...activeSetups.map(setup => ({ label: setup.name, value: setup.id })),
+      ...activeSetups.map((setup) => ({ label: setup.name, value: setup.id })),
     ],
   });
-  const allPositions = positions.map(position => ({
+  const allPositions = positions.map((position) => ({
     position,
     accountName: accountMap.get(position.accountId)?.name || 'Unknown',
     setupName: setupMap.get(position.setupId)?.name || (position.setupId ? 'Unknown' : 'Manual'),
   }));
-  const activePositions = allPositions.filter(p => p.position.status !== 'closed');
+  const activePositions = allPositions.filter((p) => p.position.status !== 'closed');
   const closedPositions = allPositions
-    .filter(p => p.position.status === 'closed')
+    .filter((p) => p.position.status === 'closed')
     .sort((a, b) => (b.position.closedAt || 0) - (a.position.closedAt || 0));
-  const winPositions = allPositions.filter(p => p.position.status === 'closed' && (p.position.pnl || 0) > 0);
-  const winRate = allPositions.filter(p => p.position.status === 'closed').length > 0
-    ? (winPositions.length / allPositions.filter(p => p.position.status === 'closed').length) * 100
-    : 0;
+  const winPositions = allPositions.filter(
+    (p) => p.position.status === 'closed' && (p.position.pnl || 0) > 0
+  );
+  const winRate =
+    allPositions.filter((p) => p.position.status === 'closed').length > 0
+      ? (winPositions.length / allPositions.filter((p) => p.position.status === 'closed').length) *
+        100
+      : 0;
 
   const [historyPage, setHistoryPage] = useState(1);
   const [historyAccountIds, setHistoryAccountIds] = useState<string[]>([]);
@@ -75,22 +79,20 @@ export function Overview () {
   const rawPerPage = getConfigValue<number>(OVERVIEW_HISTORY_PER_PAGE_KEY, 10);
   const savedPerPage = Math.max(1, Number(rawPerPage) || 10);
 
-  const validHistoryAccountIds = historyAccountIds.filter(id => accountMap.has(id));
-  const validHistorySetupIds = historySetupIds.filter(id => activeSetupMap.has(id));
+  const validHistoryAccountIds = historyAccountIds.filter((id) => accountMap.has(id));
+  const validHistorySetupIds = historySetupIds.filter((id) => activeSetupMap.has(id));
 
   useEffect(() => {
     if (savedPerPage !== rawPerPage) {
       setConfigValue(OVERVIEW_HISTORY_PER_PAGE_KEY, savedPerPage);
     }
-  }, [
-    savedPerPage,
-    rawPerPage,
-    setConfigValue,
-  ]);
+  }, [savedPerPage, rawPerPage, setConfigValue]);
 
-  const filteredHistory = closedPositions.filter(p => {
-    const accountOk = validHistoryAccountIds.length === 0 || validHistoryAccountIds.includes(p.position.accountId);
-    const setupOk = validHistorySetupIds.length === 0 || validHistorySetupIds.includes(p.position.setupId);
+  const filteredHistory = closedPositions.filter((p) => {
+    const accountOk =
+      validHistoryAccountIds.length === 0 || validHistoryAccountIds.includes(p.position.accountId);
+    const setupOk =
+      validHistorySetupIds.length === 0 || validHistorySetupIds.includes(p.position.setupId);
     return accountOk && setupOk;
   });
   const pageCount = Math.max(1, Math.ceil(filteredHistory.length / savedPerPage));
@@ -114,7 +116,7 @@ export function Overview () {
   };
 
   const commitPnL = (positionId: string, raw: string) => {
-    const position = positions.find(p => p.id === positionId);
+    const position = positions.find((p) => p.id === positionId);
     if (!position) return;
     const trimmed = raw.trim();
     if (trimmed === '' || trimmed === '-' || trimmed === '.' || trimmed === '-.') {
@@ -132,15 +134,19 @@ export function Overview () {
 
   return (
     <VStack gap={6} align="stretch">
-      <Heading size="md" color="accent" h="40px" display="flex" alignItems="center">Dashboard Overview</Heading>
+      <Heading size="md" color="accent" h="40px" display="flex" alignItems="center">
+        Dashboard Overview
+      </Heading>
 
-      <Grid templateColumns={{ base: "1fr", md: "repeat(4, 1fr)" }} gap={6}>
+      <Grid templateColumns={{ base: '1fr', md: 'repeat(4, 1fr)' }} gap={6}>
         <GridItem>
           <Card.Root bg="surface" borderColor="danger" color="fg">
             <Card.Body>
               <Stat.Root>
                 <Stat.Label color="muted">Total Equity</Stat.Label>
-                <Stat.ValueText color="fg">${totalEquity.toLocaleString(undefined, { minimumFractionDigits: 2 })}</Stat.ValueText>
+                <Stat.ValueText color="fg">
+                  ${totalEquity.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </Stat.ValueText>
                 <Stat.HelpText>
                   {totalPnL >= 0 ? <Stat.UpIndicator /> : <Stat.DownIndicator />}
                   {pnlPercent.toFixed(2)}%
@@ -155,7 +161,8 @@ export function Overview () {
               <Stat.Root>
                 <Stat.Label color="muted">Total PnL</Stat.Label>
                 <Stat.ValueText color={totalPnL >= 0 ? 'success' : 'danger'}>
-                  {totalPnL >= 0 ? '+' : ''}${totalPnL.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  {totalPnL >= 0 ? '+' : ''}$
+                  {totalPnL.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                 </Stat.ValueText>
               </Stat.Root>
             </Card.Body>
@@ -178,7 +185,8 @@ export function Overview () {
                 <Stat.Label color="muted">Win Rate</Stat.Label>
                 <Stat.ValueText color="warning">{winRate.toFixed(1)}%</Stat.ValueText>
                 <Stat.HelpText color="muted">
-                  {winPositions.length} / {allPositions.filter(p => p.position.status === 'closed').length} trades
+                  {winPositions.length} /{' '}
+                  {allPositions.filter((p) => p.position.status === 'closed').length} trades
                 </Stat.HelpText>
               </Stat.Root>
             </Card.Body>
@@ -186,7 +194,9 @@ export function Overview () {
         </GridItem>
       </Grid>
 
-      <Heading size="sm" mt={4} color="info">Active Positions</Heading>
+      <Heading size="sm" mt={4} color="info">
+        Active Positions
+      </Heading>
       <Card.Root bg="surface" color="fg" borderColor="border">
         <Card.Body>
           {activePositions.length === 0 ? (
@@ -209,11 +219,18 @@ export function Overview () {
               </Table.Header>
               <Table.Body>
                 {activePositions.map(({ position, accountName, setupName }) => {
-                  const marginEstimate = position.getMarginEstimate ? position.getMarginEstimate() : 0;
-                  const notionalCost = position.steps.reduce((sum, step) => sum + (step.size * step.price), 0);
+                  const marginEstimate = position.getMarginEstimate
+                    ? position.getMarginEstimate()
+                    : 0;
+                  const notionalCost = position.steps.reduce(
+                    (sum, step) => sum + step.size * step.price,
+                    0
+                  );
                   return (
                     <Table.Row key={position.id}>
-                      <Table.Cell fontWeight="bold" color="accentAlt">{position.symbol}</Table.Cell>
+                      <Table.Cell fontWeight="bold" color="accentAlt">
+                        {position.symbol}
+                      </Table.Cell>
                       <Table.Cell>{accountName}</Table.Cell>
                       <Table.Cell>{setupName}</Table.Cell>
                       <Table.Cell>
@@ -221,12 +238,22 @@ export function Overview () {
                           {position.status}
                         </Badge>
                       </Table.Cell>
-                      <Table.Cell textAlign="end">{position.currentBE?.toFixed(2) || '-'}</Table.Cell>
+                      <Table.Cell textAlign="end">
+                        {position.currentBE?.toFixed(2) || '-'}
+                      </Table.Cell>
                       <Table.Cell textAlign="end">${position.riskAmount.toFixed(2)}</Table.Cell>
-                      <Table.Cell textAlign="end">{position.leverage ? `${position.leverage}x` : '-'}</Table.Cell>
-                      <Table.Cell textAlign="end">{marginEstimate > 0 ? `$${marginEstimate.toFixed(4)}` : '-'}</Table.Cell>
-                      <Table.Cell textAlign="end">{notionalCost > 0 ? `$${notionalCost.toFixed(4)}` : '-'}</Table.Cell>
-                      <Table.Cell textAlign="end">{position.feeTotal ? `$${position.feeTotal.toFixed(4)}` : '-'}</Table.Cell>
+                      <Table.Cell textAlign="end">
+                        {position.leverage ? `${position.leverage}x` : '-'}
+                      </Table.Cell>
+                      <Table.Cell textAlign="end">
+                        {marginEstimate > 0 ? `$${marginEstimate.toFixed(4)}` : '-'}
+                      </Table.Cell>
+                      <Table.Cell textAlign="end">
+                        {notionalCost > 0 ? `$${notionalCost.toFixed(4)}` : '-'}
+                      </Table.Cell>
+                      <Table.Cell textAlign="end">
+                        {position.feeTotal ? `$${position.feeTotal.toFixed(4)}` : '-'}
+                      </Table.Cell>
                     </Table.Row>
                   );
                 })}
@@ -236,13 +263,17 @@ export function Overview () {
         </Card.Body>
       </Card.Root>
 
-      <Heading size="sm" mt={4} color="info">History</Heading>
+      <Heading size="sm" mt={4} color="info">
+        History
+      </Heading>
       <Card.Root bg="surface" color="fg" borderColor="border">
         <Card.Body>
           <VStack align="stretch" gap={4}>
             <HStack align="start" gap={6} flexWrap="wrap">
               <VStack align="start" gap={2}>
-                <Text fontSize="sm" color="muted">Accounts</Text>
+                <Text fontSize="sm" color="muted">
+                  Accounts
+                </Text>
                 <MultiSelect
                   size="sm"
                   width="240px"
@@ -250,9 +281,10 @@ export function Overview () {
                   value={validHistoryAccountIds.length === 0 ? ['__all'] : validHistoryAccountIds}
                   placeholder="All accounts"
                   onCommit={(raw) => {
-                    const values = raw.length > 0 && raw[raw.length - 1] !== '__all'
-                      ? raw.filter(v => v !== '__all')
-                      : [];
+                    const values =
+                      raw.length > 0 && raw[raw.length - 1] !== '__all'
+                        ? raw.filter((v) => v !== '__all')
+                        : [];
                     setHistoryPage(1);
                     setHistoryAccountIds(values);
                   }}
@@ -260,7 +292,9 @@ export function Overview () {
               </VStack>
 
               <VStack align="start" gap={2}>
-                <Text fontSize="sm" color="muted">Setups</Text>
+                <Text fontSize="sm" color="muted">
+                  Setups
+                </Text>
                 <MultiSelect
                   size="sm"
                   width="240px"
@@ -268,9 +302,10 @@ export function Overview () {
                   value={validHistorySetupIds.length === 0 ? ['__all'] : validHistorySetupIds}
                   placeholder="All setups"
                   onCommit={(raw) => {
-                    const values = raw.length > 0 && raw[raw.length - 1] !== '__all'
-                      ? raw.filter(v => v !== '__all')
-                      : [];
+                    const values =
+                      raw.length > 0 && raw[raw.length - 1] !== '__all'
+                        ? raw.filter((v) => v !== '__all')
+                        : [];
                     setHistoryPage(1);
                     setHistorySetupIds(values);
                   }}
@@ -278,7 +313,9 @@ export function Overview () {
               </VStack>
 
               <VStack align="start" gap={2}>
-                <Text fontSize="sm" color="muted">Per Page</Text>
+                <Text fontSize="sm" color="muted">
+                  Per Page
+                </Text>
                 <NumberInput
                   key={`per-page-${savedPerPage}`}
                   size="sm"
@@ -312,20 +349,41 @@ export function Overview () {
                 </Table.Header>
                 <Table.Body>
                   {pagedHistory.map(({ position, accountName, setupName }) => {
-                    const marginEstimate = position.getMarginEstimate ? position.getMarginEstimate() : 0;
-                    const notionalCost = position.steps.reduce((sum, step) => sum + (step.size * step.price), 0);
+                    const marginEstimate = position.getMarginEstimate
+                      ? position.getMarginEstimate()
+                      : 0;
+                    const notionalCost = position.steps.reduce(
+                      (sum, step) => sum + step.size * step.price,
+                      0
+                    );
                     return (
                       <Table.Row key={position.id}>
-                        <Table.Cell>{dayjs(position.closedAt || position.createdAt).format(DATETIME_Format)}</Table.Cell>
+                        <Table.Cell>
+                          {dayjs(position.closedAt || position.createdAt).format(DATETIME_Format)}
+                        </Table.Cell>
                         <Table.Cell>{accountName}</Table.Cell>
                         <Table.Cell>{setupName}</Table.Cell>
-                        <Table.Cell fontWeight="bold" color="accentAlt">{position.symbol}</Table.Cell>
+                        <Table.Cell fontWeight="bold" color="accentAlt">
+                          {position.symbol}
+                        </Table.Cell>
                         <Table.Cell textAlign="end">${position.riskAmount.toFixed(2)}</Table.Cell>
-                        <Table.Cell textAlign="end">{position.leverage ? `${position.leverage}x` : '-'}</Table.Cell>
-                        <Table.Cell textAlign="end">{marginEstimate > 0 ? `$${marginEstimate.toFixed(4)}` : '-'}</Table.Cell>
-                        <Table.Cell textAlign="end">{notionalCost > 0 ? `$${notionalCost.toFixed(4)}` : '-'}</Table.Cell>
-                        <Table.Cell textAlign="end">{position.stopLossPrice > 0 ? `$${position.stopLossPrice.toFixed(4)}` : '-'}</Table.Cell>
-                        <Table.Cell textAlign="end">{position.feeTotal ? `$${position.feeTotal.toFixed(4)}` : '-'}</Table.Cell>
+                        <Table.Cell textAlign="end">
+                          {position.leverage ? `${position.leverage}x` : '-'}
+                        </Table.Cell>
+                        <Table.Cell textAlign="end">
+                          {marginEstimate > 0 ? `$${marginEstimate.toFixed(4)}` : '-'}
+                        </Table.Cell>
+                        <Table.Cell textAlign="end">
+                          {notionalCost > 0 ? `$${notionalCost.toFixed(4)}` : '-'}
+                        </Table.Cell>
+                        <Table.Cell textAlign="end">
+                          {position.stopLossPrice > 0
+                            ? `$${position.stopLossPrice.toFixed(4)}`
+                            : '-'}
+                        </Table.Cell>
+                        <Table.Cell textAlign="end">
+                          {position.feeTotal ? `$${position.feeTotal.toFixed(4)}` : '-'}
+                        </Table.Cell>
                         <Table.Cell textAlign="end">
                           <HStack justify="flex-end">
                             <NumberInput

@@ -1,7 +1,7 @@
-import type { ReactNode } from 'react';
-import { describe, it, expect, vi } from 'vitest';
-import { render } from '@testing-library/react';
 import { ChakraProvider, createListCollection } from '@chakra-ui/react';
+import { render } from '@testing-library/react';
+import type { ReactNode } from 'react';
+import { describe, expect, it, vi } from 'vitest';
 import system from '../../theme/monokai';
 import { MultiSelect } from './MultiSelect';
 
@@ -16,7 +16,13 @@ vi.mock('@chakra-ui/react', async () => {
     Portal: ({ children }: { children?: ReactNode }) => <>{children}</>,
     Select: {
       ...actual.Select,
-      Root: ({ onValueChange, children }: { onValueChange?: typeof capturedOnValueChange; children?: ReactNode }) => {
+      Root: ({
+        onValueChange,
+        children,
+      }: {
+        onValueChange?: typeof capturedOnValueChange;
+        children?: ReactNode;
+      }) => {
         capturedOnValueChange = onValueChange;
         return <div>{children}</div>;
       },

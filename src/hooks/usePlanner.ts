@@ -1,14 +1,14 @@
 import { useSyncExternalStore } from 'react';
-import { plannerStore } from '../store/PlannerStore';
 import { AccountModel } from '../models/AccountModel';
-import { SetupModel } from '../models/SetupModel';
 import { PositionModel } from '../models/PositionModel';
+import { SetupModel } from '../models/SetupModel';
 import type { JSONValue } from '../models/types';
+import { plannerStore } from '../store/PlannerStore';
 
-export function usePlanner () {
+export function usePlanner() {
   const state = useSyncExternalStore(
     (cb) => plannerStore.subscribe(cb),
-    () => plannerStore.snapshot,
+    () => plannerStore.snapshot
   );
 
   return {
@@ -26,7 +26,8 @@ export function usePlanner () {
     addPosition: (p: PositionModel) => plannerStore.addPosition(p),
     updatePosition: (p: PositionModel) => plannerStore.updatePosition(p),
     deletePosition: (id: string) => plannerStore.deletePosition(id),
-    getConfigValue: <T extends JSONValue>(key: string, fallback: T) => plannerStore.getConfigValue(key, fallback),
+    getConfigValue: <T extends JSONValue>(key: string, fallback: T) =>
+      plannerStore.getConfigValue(key, fallback),
     setConfigValue: (key: string, value: JSONValue) => plannerStore.setConfigValue(key, value),
     exportData: () => plannerStore.exportData(),
     importData: async (json: string) => plannerStore.importData(json),

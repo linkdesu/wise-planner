@@ -1,5 +1,5 @@
-import type { IAccount } from './types';
 import { PositionModel } from './PositionModel';
+import type { IAccount } from './types';
 
 export class AccountModel implements IAccount {
   id: string;
@@ -9,7 +9,7 @@ export class AccountModel implements IAccount {
   takerFee: number;
   makerFee: number;
 
-  constructor (data: Partial<IAccount> = {}) {
+  constructor(data: Partial<IAccount> = {}) {
     this.id = data.id || crypto.randomUUID();
     this.name = data.name || 'Main Account';
     this.initialBalance = data.initialBalance || 10000;
@@ -18,12 +18,12 @@ export class AccountModel implements IAccount {
     this.makerFee = data.makerFee || 0.0002; // 0.02% default
   }
 
-  calculateStats (positions: PositionModel[]) {
+  calculateStats(positions: PositionModel[]) {
     let realizedPnL = 0;
     let totalFees = 0;
 
     // Only count closed positions for realized balance
-    positions.forEach(p => {
+    positions.forEach((p) => {
       // Ensure position belongs to this account (double check, though caller should filter)
       if (p.accountId === this.id && p.status === 'closed' && p.pnl !== undefined) {
         realizedPnL += p.pnl;

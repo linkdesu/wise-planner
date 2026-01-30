@@ -1,11 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
 import { ChakraProvider } from '@chakra-ui/react';
-import system from '../theme/monokai';
-import { PositionWorkspace } from './PositionWorkspace';
+import { render, screen, within } from '@testing-library/react';
+import Decimal from 'decimal.js';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PositionModel } from '../models/PositionModel';
 import { SetupModel } from '../models/SetupModel';
-import Decimal from 'decimal.js';
+import system from '../theme/monokai';
+import { PositionWorkspace } from './PositionWorkspace';
 
 let plannerState: ReturnType<typeof createPlannerState>;
 const createPlannerState = () => {
@@ -160,18 +160,30 @@ describe('PositionWorkspace', () => {
     const expected = computeExpected(90, 100);
     const marginControl = screen.getByText('Margin', { selector: 'label' }).closest('div');
     const beControl = screen.getByText('Final Break Even', { selector: 'label' }).closest('div');
-    const totalSizeControl = screen.getByText('Total Size (Base Asset)', { selector: 'label' }).closest('div');
-    const totalCostControl = screen.getByText('Notional Cost', { selector: 'label' }).closest('div');
+    const totalSizeControl = screen
+      .getByText('Total Size (Base Asset)', { selector: 'label' })
+      .closest('div');
+    const totalCostControl = screen
+      .getByText('Notional Cost', { selector: 'label' })
+      .closest('div');
 
     expect(marginControl).not.toBeNull();
     expect(beControl).not.toBeNull();
     expect(totalSizeControl).not.toBeNull();
     expect(totalCostControl).not.toBeNull();
 
-    expect(within(marginControl as HTMLElement).getByText(`$${expected.marginEst.toFixed(4)}`)).toBeInTheDocument();
-    expect(within(beControl as HTMLElement).getByText(expected.predictedBE.toFixed(2))).toBeInTheDocument();
-    expect(within(totalSizeControl as HTMLElement).getByText(expected.totalSize.toFixed(4))).toBeInTheDocument();
-    expect(within(totalCostControl as HTMLElement).getByText(`$${expected.totalCost.toFixed(4)}`)).toBeInTheDocument();
+    expect(
+      within(marginControl as HTMLElement).getByText(`$${expected.marginEst.toFixed(4)}`)
+    ).toBeInTheDocument();
+    expect(
+      within(beControl as HTMLElement).getByText(expected.predictedBE.toFixed(2))
+    ).toBeInTheDocument();
+    expect(
+      within(totalSizeControl as HTMLElement).getByText(expected.totalSize.toFixed(4))
+    ).toBeInTheDocument();
+    expect(
+      within(totalCostControl as HTMLElement).getByText(`$${expected.totalCost.toFixed(4)}`)
+    ).toBeInTheDocument();
   });
 
   it('should keep stop loss and price when risk amount changes', () => {
@@ -210,18 +222,30 @@ describe('PositionWorkspace', () => {
     const expected = computeExpected(95, 200);
     const marginControl = screen.getByText('Margin', { selector: 'label' }).closest('div');
     const beControl = screen.getByText('Final Break Even', { selector: 'label' }).closest('div');
-    const totalSizeControl = screen.getByText('Total Size (Base Asset)', { selector: 'label' }).closest('div');
-    const totalCostControl = screen.getByText('Notional Cost', { selector: 'label' }).closest('div');
+    const totalSizeControl = screen
+      .getByText('Total Size (Base Asset)', { selector: 'label' })
+      .closest('div');
+    const totalCostControl = screen
+      .getByText('Notional Cost', { selector: 'label' })
+      .closest('div');
 
     expect(marginControl).not.toBeNull();
     expect(beControl).not.toBeNull();
     expect(totalSizeControl).not.toBeNull();
     expect(totalCostControl).not.toBeNull();
 
-    expect(within(marginControl as HTMLElement).getByText(`$${expected.marginEst.toFixed(4)}`)).toBeInTheDocument();
-    expect(within(beControl as HTMLElement).getByText(expected.predictedBE.toFixed(2))).toBeInTheDocument();
-    expect(within(totalSizeControl as HTMLElement).getByText(expected.totalSize.toFixed(4))).toBeInTheDocument();
-    expect(within(totalCostControl as HTMLElement).getByText(`$${expected.totalCost.toFixed(4)}`)).toBeInTheDocument();
+    expect(
+      within(marginControl as HTMLElement).getByText(`$${expected.marginEst.toFixed(4)}`)
+    ).toBeInTheDocument();
+    expect(
+      within(beControl as HTMLElement).getByText(expected.predictedBE.toFixed(2))
+    ).toBeInTheDocument();
+    expect(
+      within(totalSizeControl as HTMLElement).getByText(expected.totalSize.toFixed(4))
+    ).toBeInTheDocument();
+    expect(
+      within(totalCostControl as HTMLElement).getByText(`$${expected.totalCost.toFixed(4)}`)
+    ).toBeInTheDocument();
   });
 
   it('should disable close until realized PnL is provided', () => {

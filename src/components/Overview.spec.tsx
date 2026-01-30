@@ -1,17 +1,17 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
 import { ChakraProvider } from '@chakra-ui/react';
-import system from '../theme/monokai';
-import { Overview } from './Overview';
+import { render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PositionModel } from '../models/PositionModel';
 import { SetupModel } from '../models/SetupModel';
+import system from '../theme/monokai';
+import { Overview } from './Overview';
 
 let plannerState: ReturnType<typeof createPlannerState>;
 const OVERVIEW_HISTORY_PER_PAGE_KEY = 'overview.history.perPage';
 
-function upsertConfig (key: string, value: unknown) {
+function upsertConfig(key: string, value: unknown) {
   const next = { key, value };
-  const idx = plannerState.configs.findIndex(c => c.key === key);
+  const idx = plannerState.configs.findIndex((c) => c.key === key);
   if (idx === -1) {
     plannerState.configs.push(next);
   } else {
@@ -37,8 +37,18 @@ const createPlannerState = () => {
     takerFee: 0,
     makerFee: 0,
   };
-  const setupA = new SetupModel({ id: 'setup-a', name: 'Setup A', resizingTimes: 1, resizingRatios: [1] });
-  const setupB = new SetupModel({ id: 'setup-b', name: 'Setup B', resizingTimes: 1, resizingRatios: [1] });
+  const setupA = new SetupModel({
+    id: 'setup-a',
+    name: 'Setup A',
+    resizingTimes: 1,
+    resizingRatios: [1],
+  });
+  const setupB = new SetupModel({
+    id: 'setup-b',
+    name: 'Setup B',
+    resizingTimes: 1,
+    resizingRatios: [1],
+  });
 
   const position1 = new PositionModel({
     id: 'pos-1',
@@ -84,7 +94,7 @@ const createPlannerState = () => {
     deletePosition: vi.fn(),
     getConfigValue: vi.fn(<T,>(key: string, fallback: T): T => {
       const config = plannerState.configMap.get(key);
-      return (config ? (config.value as T) : fallback);
+      return config ? (config.value as T) : fallback;
     }),
     setConfigValue: vi.fn((key: string, value: unknown) => {
       upsertConfig(key, value);

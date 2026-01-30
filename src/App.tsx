@@ -1,15 +1,15 @@
-import dayjs from 'dayjs'
-import { ChakraProvider, Box, Flex, Heading, Tabs, Button } from '@chakra-ui/react';
-import system from './theme/monokai';
-import { Overview } from './components/Overview';
+import { Box, Button, ChakraProvider, Flex, Heading, Tabs } from '@chakra-ui/react';
+import dayjs from 'dayjs';
 import { AccountManager } from './components/AccountManager';
-import { SetupManager } from './components/SetupManager';
+import { Overview } from './components/Overview';
 import { PositionWorkspace } from './components/PositionWorkspace';
-import { usePlanner } from './hooks/usePlanner';
+import { SetupManager } from './components/SetupManager';
 import { Toaster, toaster } from './components/ui/toaster';
 import { FILE_DATETIME_Format } from './const';
+import { usePlanner } from './hooks/usePlanner';
+import system from './theme/monokai';
 
-function App () {
+function App() {
   const { exportData, importData, clearAllData, isLoading } = usePlanner();
   const showDevTools = new URLSearchParams(window.location.search).has('dev');
 
@@ -49,8 +49,17 @@ function App () {
   if (isLoading) {
     return (
       <ChakraProvider value={system}>
-        <Box minH="100vh" bg="bg" color="fg" display="flex" alignItems="center" justifyContent="center">
-          <Heading size="md" color="surface">Initializing ...</Heading>
+        <Box
+          minH="100vh"
+          bg="bg"
+          color="fg"
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+        >
+          <Heading size="md" color="surface">
+            Initializing ...
+          </Heading>
         </Box>
       </ChakraProvider>
     );
@@ -60,7 +69,9 @@ function App () {
     <ChakraProvider value={system}>
       <Box minH="100vh" bg="bg" color="fg" p={4}>
         <Flex justify="space-between" align="center" mb={6}>
-          <Heading size="lg" color="brand">Wise Planner</Heading>
+          <Heading size="lg" color="brand">
+            Wise Planner
+          </Heading>
           <Flex gap={2}>
             {showDevTools && (
               <Button

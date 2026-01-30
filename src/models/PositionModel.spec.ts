@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { PositionModel } from './PositionModel';
 import { SetupModel } from './SetupModel';
 
@@ -36,12 +36,12 @@ describe('PositionModel sizing', () => {
     position.recalculateRiskDriven(setup, 10000);
 
     expect(position.steps[0].size).toBeCloseTo(3.2258, 3);
-    expect(position.steps[1].size).toBeCloseTo(3.8710, 3);
+    expect(position.steps[1].size).toBeCloseTo(3.871, 3);
 
     position.stopLossPrice = 90;
     position.recalculateRiskDriven(setup, 10000);
 
-    expect(position.steps[0].size).toBeCloseTo(2.3810, 3);
+    expect(position.steps[0].size).toBeCloseTo(2.381, 3);
     expect(position.steps[1].size).toBeCloseTo(2.8571, 3);
   });
 
@@ -59,7 +59,7 @@ describe('PositionModel sizing', () => {
     position.recalculateRiskDriven(setup, 10000);
 
     expect(position.steps[0].size).toBeCloseTo(3.2258, 3);
-    expect(position.steps[1].size).toBeCloseTo(3.8710, 3);
+    expect(position.steps[1].size).toBeCloseTo(3.871, 3);
 
     position.riskAmount = 200;
     position.recalculateRiskDriven(setup, 10000);

@@ -1,8 +1,8 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import { AccountModel } from '../models/AccountModel';
-import { SetupModel } from '../models/SetupModel';
-import { PositionModel } from '../models/PositionModel';
 import { Config } from '../models/ConfigModel';
+import { PositionModel } from '../models/PositionModel';
+import { SetupModel } from '../models/SetupModel';
 import type { JSONValue } from '../models/types';
 
 interface PlannerDB extends DBSchema {
@@ -33,7 +33,7 @@ const OVERVIEW_HISTORY_PER_PAGE_KEY = 'overview.history.perPage';
 
 let dbPromise: Promise<IDBPDatabase<PlannerDB>>;
 
-export function initDB () {
+export function initDB() {
   if (!dbPromise) {
     dbPromise = openDB<PlannerDB>(DB_NAME, DB_VERSION, {
       upgrade: async (db, oldVersion, _newVersion, tx) => {
@@ -84,9 +84,8 @@ export function initDB () {
 
             if (entry.id === LEGACY_OVERVIEW_HISTORY_ID) {
               const perPageRaw = Number(entry.perPage);
-              const perPage = Number.isFinite(perPageRaw) && perPageRaw > 0
-                ? Math.floor(perPageRaw)
-                : 10;
+              const perPage =
+                Number.isFinite(perPageRaw) && perPageRaw > 0 ? Math.floor(perPageRaw) : 10;
 
               putConfig(OVERVIEW_HISTORY_PER_PAGE_KEY, perPage);
             }
@@ -98,72 +97,72 @@ export function initDB () {
   return dbPromise;
 }
 
-export async function getAllAccounts (): Promise<AccountModel[]> {
+export async function getAllAccounts(): Promise<AccountModel[]> {
   const db = await initDB();
   return db.getAll('accounts');
 }
 
-export async function getAllSetups (): Promise<SetupModel[]> {
+export async function getAllSetups(): Promise<SetupModel[]> {
   const db = await initDB();
   return db.getAll('setups');
 }
 
-export async function getAllPositions (): Promise<PositionModel[]> {
+export async function getAllPositions(): Promise<PositionModel[]> {
   const db = await initDB();
   return db.getAll('positions');
 }
 
-export async function getConfig (key: string): Promise<Config | undefined> {
+export async function getConfig(key: string): Promise<Config | undefined> {
   const db = await initDB();
   return db.get('configs', key);
 }
 
-export async function getAllConfigs (): Promise<Config[]> {
+export async function getAllConfigs(): Promise<Config[]> {
   const db = await initDB();
   return db.getAll('configs');
 }
 
-export async function saveAccount (account: AccountModel) {
+export async function saveAccount(account: AccountModel) {
   const db = await initDB();
   return db.put('accounts', account);
 }
 
-export async function deleteAccount (id: string) {
+export async function deleteAccount(id: string) {
   const db = await initDB();
   return db.delete('accounts', id);
 }
 
-export async function saveSetup (setup: SetupModel) {
+export async function saveSetup(setup: SetupModel) {
   const db = await initDB();
   return db.put('setups', setup);
 }
 
-export async function deleteSetup (id: string) {
+export async function deleteSetup(id: string) {
   const db = await initDB();
   return db.delete('setups', id);
 }
 
-export async function savePosition (position: PositionModel) {
+export async function savePosition(position: PositionModel) {
   const db = await initDB();
   return db.put('positions', position);
 }
 
-export async function saveConfig (config: Config) {
+export async function saveConfig(config: Config) {
   const db = await initDB();
   return db.put('configs', config);
 }
 
-export async function deletePosition (id: string) {
+export async function deletePosition(id: string) {
   const db = await initDB();
   return db.delete('positions', id);
 }
 
-export async function deleteConfig (key: string) {
+export async function deleteConfig(key: string) {
   const db = await initDB();
   return db.delete('configs', key);
 }
 
-export async function clearAll () {
+export async function clearAll() {
   const db = await initDB();
   const tx = db.transaction(['accounts', 'setups', 'positions', 'configs'], 'readwrite');
   await Promise.all([
@@ -175,7 +174,7 @@ export async function clearAll () {
   ]);
 }
 
-export async function bulkSave (
+export async function bulkSave(
   accounts: AccountModel[],
   setups: SetupModel[],
   positions: PositionModel[],

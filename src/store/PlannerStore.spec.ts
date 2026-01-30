@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AccountModel } from '../models/AccountModel';
-import { SetupModel } from '../models/SetupModel';
 import { PositionModel } from '../models/PositionModel';
+import { SetupModel } from '../models/SetupModel';
 import { PlannerStore } from './PlannerStore';
 import * as db from './db';
 
@@ -25,12 +25,12 @@ vi.mock('./db', () => {
   };
 });
 
-async function waitForLoaded (store: PlannerStore) {
+async function waitForLoaded(store: PlannerStore) {
   for (let i = 0; i < 20; i += 1) {
     if (!store.isLoading) return;
     // Allow the async init path to settle.
-    // eslint-disable-next-line no-await-in-loop
-    await new Promise(resolve => setTimeout(resolve, 0));
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
   }
 }
 
@@ -41,9 +41,24 @@ describe('PlannerStore deletion rules', () => {
 
   it('cascades position deletion when deleting an account', async () => {
     const account = new AccountModel({ id: 'acc-1', name: 'A' });
-    const setup = new SetupModel({ id: 'setup-1', name: 'S', resizingTimes: 1, resizingRatios: [1] });
-    const pos1 = new PositionModel({ id: 'pos-1', accountId: account.id, setupId: setup.id, status: 'planning' });
-    const pos2 = new PositionModel({ id: 'pos-2', accountId: account.id, setupId: setup.id, status: 'opened' });
+    const setup = new SetupModel({
+      id: 'setup-1',
+      name: 'S',
+      resizingTimes: 1,
+      resizingRatios: [1],
+    });
+    const pos1 = new PositionModel({
+      id: 'pos-1',
+      accountId: account.id,
+      setupId: setup.id,
+      status: 'planning',
+    });
+    const pos2 = new PositionModel({
+      id: 'pos-2',
+      accountId: account.id,
+      setupId: setup.id,
+      status: 'opened',
+    });
 
     vi.mocked(db.getAllAccounts).mockResolvedValue([account]);
     vi.mocked(db.getAllSetups).mockResolvedValue([setup]);
@@ -55,8 +70,8 @@ describe('PlannerStore deletion rules', () => {
 
     store.deleteAccount(account.id);
 
-    expect(store.accounts.find(a => a.id === account.id)).toBeUndefined();
-    expect(store.positions.filter(p => p.accountId === account.id)).toHaveLength(0);
+    expect(store.accounts.find((a) => a.id === account.id)).toBeUndefined();
+    expect(store.positions.filter((p) => p.accountId === account.id)).toHaveLength(0);
     expect(db.deletePosition).toHaveBeenCalledTimes(2);
     expect(db.deletePosition).toHaveBeenCalledWith(pos1.id);
     expect(db.deletePosition).toHaveBeenCalledWith(pos2.id);
@@ -65,8 +80,18 @@ describe('PlannerStore deletion rules', () => {
 
   it('soft-deletes setups that are referenced by positions', async () => {
     const account = new AccountModel({ id: 'acc-1', name: 'A' });
-    const setup = new SetupModel({ id: 'setup-1', name: 'S', resizingTimes: 1, resizingRatios: [1] });
-    const pos = new PositionModel({ id: 'pos-1', accountId: account.id, setupId: setup.id, status: 'opened' });
+    const setup = new SetupModel({
+      id: 'setup-1',
+      name: 'S',
+      resizingTimes: 1,
+      resizingRatios: [1],
+    });
+    const pos = new PositionModel({
+      id: 'pos-1',
+      accountId: account.id,
+      setupId: setup.id,
+      status: 'opened',
+    });
 
     vi.mocked(db.getAllAccounts).mockResolvedValue([account]);
     vi.mocked(db.getAllSetups).mockResolvedValue([setup]);
@@ -78,7 +103,7 @@ describe('PlannerStore deletion rules', () => {
 
     store.deleteSetup(setup.id);
 
-    const updatedSetup = store.setups.find(s => s.id === setup.id);
+    const updatedSetup = store.setups.find((s) => s.id === setup.id);
     expect(updatedSetup?.isDeleted).toBe(true);
     expect(db.saveSetup).toHaveBeenCalled();
     expect(db.deleteSetup).not.toHaveBeenCalled();
@@ -86,7 +111,12 @@ describe('PlannerStore deletion rules', () => {
 
   it('hard-deletes setups that are not referenced', async () => {
     const account = new AccountModel({ id: 'acc-1', name: 'A' });
-    const setup = new SetupModel({ id: 'setup-1', name: 'S', resizingTimes: 1, resizingRatios: [1] });
+    const setup = new SetupModel({
+      id: 'setup-1',
+      name: 'S',
+      resizingTimes: 1,
+      resizingRatios: [1],
+    });
 
     vi.mocked(db.getAllAccounts).mockResolvedValue([account]);
     vi.mocked(db.getAllSetups).mockResolvedValue([setup]);
@@ -98,7 +128,7 @@ describe('PlannerStore deletion rules', () => {
 
     store.deleteSetup(setup.id);
 
-    expect(store.setups.find(s => s.id === setup.id)).toBeUndefined();
+    expect(store.setups.find((s) => s.id === setup.id)).toBeUndefined();
     expect(db.deleteSetup).toHaveBeenCalledWith(setup.id);
   });
 });

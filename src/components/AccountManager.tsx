@@ -1,11 +1,23 @@
+import {
+  Button,
+  Card,
+  Dialog,
+  Flex,
+  Heading,
+  HStack,
+  IconButton,
+  Input,
+  Table,
+  Text,
+  VStack,
+} from '@chakra-ui/react';
+import { Edit, Plus, Save, Trash } from 'lucide-react';
 import { useState } from 'react';
-import { Button, Table, Input, VStack, HStack, Card, Heading, IconButton, Flex, Dialog, Text } from '@chakra-ui/react';
-import { Trash, Plus, Save, Edit } from 'lucide-react';
 import { usePlanner } from '../hooks/usePlanner';
 import { AccountModel } from '../models/AccountModel';
 import { NumberInput } from './ui/NumberInput';
 
-export function AccountManager () {
+export function AccountManager() {
   const { accounts, positions, addAccount, updateAccount, deleteAccount } = usePlanner();
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [pendingDeleteAccountId, setPendingDeleteAccountId] = useState<string | null>(null);
@@ -13,9 +25,10 @@ export function AccountManager () {
   // Local state for the account being edited/created
   const [editData, setEditData] = useState<Partial<AccountModel>>({});
 
-  const pendingDeleteAccount = accounts.find(account => account.id === pendingDeleteAccountId) || null;
+  const pendingDeleteAccount =
+    accounts.find((account) => account.id === pendingDeleteAccountId) || null;
   const pendingDeletePositionCount = pendingDeleteAccount
-    ? positions.filter(position => position.accountId === pendingDeleteAccount.id).length
+    ? positions.filter((position) => position.accountId === pendingDeleteAccount.id).length
     : 0;
 
   const handleCreate = () => {
@@ -38,7 +51,7 @@ export function AccountManager () {
 
       // Better: We should probably fetch the original and update it.
       // For simplicity, re-instantiating works if constructor handles it.
-      const original = accounts.find(a => a.id === isEditing);
+      const original = accounts.find((a) => a.id === isEditing);
       if (original) {
         original.name = editData.name!;
         original.initialBalance = Number(editData.initialBalance);
@@ -63,8 +76,10 @@ export function AccountManager () {
     >
       <VStack gap={6} align="stretch">
         <Flex justify="space-between" align="center">
-          <Heading size="md" color="accent">Manage Accounts</Heading>
-          <Button onClick={handleCreate} color="success" bg={{ _hover: "surfaceSubtle" }}>
+          <Heading size="md" color="accent">
+            Manage Accounts
+          </Heading>
+          <Button onClick={handleCreate} color="success" bg={{ _hover: 'surfaceSubtle' }}>
             <Plus size={16} />
             New Account
           </Button>
@@ -76,29 +91,41 @@ export function AccountManager () {
               <Table.Header bg="surface">
                 <Table.Row>
                   <Table.ColumnHeader color="muted">Name</Table.ColumnHeader>
-                  <Table.ColumnHeader color="muted" textAlign="end">Initial Balance</Table.ColumnHeader>
-                  <Table.ColumnHeader color="muted" textAlign="end">Current Balance</Table.ColumnHeader>
-                  <Table.ColumnHeader color="muted" textAlign="end">Taker Fee %</Table.ColumnHeader>
-                  <Table.ColumnHeader color="muted" textAlign="end">Maker Fee %</Table.ColumnHeader>
+                  <Table.ColumnHeader color="muted" textAlign="end">
+                    Initial Balance
+                  </Table.ColumnHeader>
+                  <Table.ColumnHeader color="muted" textAlign="end">
+                    Current Balance
+                  </Table.ColumnHeader>
+                  <Table.ColumnHeader color="muted" textAlign="end">
+                    Taker Fee %
+                  </Table.ColumnHeader>
+                  <Table.ColumnHeader color="muted" textAlign="end">
+                    Maker Fee %
+                  </Table.ColumnHeader>
                   <Table.ColumnHeader color="muted">Actions</Table.ColumnHeader>
                 </Table.Row>
               </Table.Header>
               <Table.Body>
-                {accounts.reverse().map(account => (
+                {accounts.reverse().map((account) => (
                   <Table.Row key={account.id}>
                     <Table.Cell>
                       {isEditing === account.id ? (
                         <Input
                           value={editData.name}
-                          onChange={e => setEditData({ ...editData, name: e.target.value })}
+                          onChange={(e) => setEditData({ ...editData, name: e.target.value })}
                         />
-                      ) : account.name}
+                      ) : (
+                        account.name
+                      )}
                     </Table.Cell>
                     <Table.Cell textAlign="end">
                       {isEditing === account.id ? (
                         <NumberInput
                           key={`initial-${editData.initialBalance ?? account.initialBalance}`}
-                          value={editData.initialBalance?.toString() ?? account.initialBalance.toString()}
+                          value={
+                            editData.initialBalance?.toString() ?? account.initialBalance.toString()
+                          }
                           onCommit={(raw) => {
                             const next = Number(raw);
                             if (Number.isFinite(next)) {
@@ -106,9 +133,16 @@ export function AccountManager () {
                             }
                           }}
                         />
-                      ) : account.initialBalance.toFixed(2)}
+                      ) : (
+                        account.initialBalance.toFixed(2)
+                      )}
                     </Table.Cell>
-                    <Table.Cell textAlign="end" color={account.currentBalance >= account.initialBalance ? 'success' : 'danger'}>
+                    <Table.Cell
+                      textAlign="end"
+                      color={
+                        account.currentBalance >= account.initialBalance ? 'success' : 'danger'
+                      }
+                    >
                       {account.currentBalance.toFixed(2)}
                     </Table.Cell>
                     <Table.Cell textAlign="end">
@@ -124,7 +158,9 @@ export function AccountManager () {
                             }
                           }}
                         />
-                      ) : (account.takerFee * 100).toFixed(4) + '%'}
+                      ) : (
+                        (account.takerFee * 100).toFixed(4) + '%'
+                      )}
                     </Table.Cell>
                     <Table.Cell textAlign="end">
                       {isEditing === account.id ? (
@@ -139,7 +175,9 @@ export function AccountManager () {
                             }
                           }}
                         />
-                      ) : (account.makerFee * 100).toFixed(4) + '%'}
+                      ) : (
+                        (account.makerFee * 100).toFixed(4) + '%'
+                      )}
                     </Table.Cell>
                     <Table.Cell>
                       <HStack gap={2}>
@@ -149,8 +187,16 @@ export function AccountManager () {
                             Save
                           </Button>
                         ) : (
-                          <Button size="sm" variant="ghost" color="info" bg={{ _hover: "surfaceSubtle" }}
-                            onClick={() => startEdit(account)}><Edit size={14} />Edit</Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            color="info"
+                            bg={{ _hover: 'surfaceSubtle' }}
+                            onClick={() => startEdit(account)}
+                          >
+                            <Edit size={14} />
+                            Edit
+                          </Button>
                         )}
                         <IconButton
                           aria-label="Delete"
@@ -182,7 +228,9 @@ export function AccountManager () {
           <Dialog.Body>
             <VStack align="start" gap={2}>
               <Text>
-                This will delete the account{pendingDeleteAccount ? ` "${pendingDeleteAccount.name}"` : ''} and all positions of this account.
+                This will delete the account
+                {pendingDeleteAccount ? ` "${pendingDeleteAccount.name}"` : ''} and all positions of
+                this account.
               </Text>
               <Text color="danger">
                 Related positions to be deleted: {pendingDeletePositionCount}
