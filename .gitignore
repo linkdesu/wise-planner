@@ -25,3 +25,6 @@ dist-ssr
 
 openspec/changes/
 .gemini/
+
+# Local Netlify folder
+.netlify

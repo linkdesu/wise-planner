@@ -74,10 +74,10 @@ export class PositionModel implements IPosition {
     const totalRatio = this._getTotalRatio(setup);
     if (totalRatio.lte(0)) return;
 
-    const lossPerCost = this._getLossPerCost(setup, totalRatio);
+    const lossPerCost = this._calcLossPerCost(setup, totalRatio);
     if (lossPerCost.lte(0)) return;
 
-    const totalCost = this._getTotalCostFromRisk(accountBalance, lossPerCost);
+    const totalCost = this._calcNationalCostFromRisk(accountBalance, lossPerCost);
     this._distributeCost(totalCost, setup, totalRatio, fees);
   }
 
@@ -85,45 +85,57 @@ export class PositionModel implements IPosition {
     return setup.resizingRatios.reduce((sum, ratio) => sum.plus(ratio), new Decimal(0));
   }
 
-  private _getLossPerCost (setup: ISetup, totalRatio: Decimal): Decimal {
+  private _calcLossPerCost (setup: ISetup, totalRatio: Decimal): Decimal {
     if (totalRatio.lte(0)) return new Decimal(0);
 
     let lossPerCost = new Decimal(0);
 
+    console.log(`==================== Loss Per Cost ====================`)
+
     this.steps.forEach((step, idx) => {
+      console.log(`==================== Step ${idx} ====================`)
       const ratio = setup.resizingRatios[idx] || 0;
       const ratioDec = new Decimal(ratio);
       if (ratioDec.lte(0) || step.price <= 0) return;
       const normalizedRatio = ratioDec.div(totalRatio);
+      console.log(`normalizedRatio: ${normalizedRatio} = ${ratioDec} / ${totalRatio}`)
+
       if (normalizedRatio.lte(0)) return;
 
       const lossPerUnit = this.side === 'long'
         ? step.price - this.stopLossPrice
         : this.stopLossPrice - step.price;
+      console.log(`lossPerUnit: ${lossPerUnit} = ${step.price} - ${this.stopLossPrice}`)
 
       const lossPerUnitDec = new Decimal(lossPerUnit);
       const priceDec = new Decimal(step.price);
       if (priceDec.lte(0)) return;
       const lossPerPrice = lossPerUnitDec.div(priceDec);
+      console.log(`lossPerPrice: ${lossPerPrice} = ${lossPerUnit} / ${priceDec}`)
       lossPerCost = lossPerCost.plus(normalizedRatio.times(lossPerPrice));
+      console.log(`lossPerCost: ${lossPerCost} = ${lossPerCost} + ${normalizedRatio} x ${lossPerPrice}`)
     });
 
     return lossPerCost;
   }
 
-  private _getTotalCostFromRisk (accountBalance: number, lossPerCost: Decimal): Decimal {
+  private _calcNationalCostFromRisk (accountBalance: number, lossPerCost: Decimal): Decimal {
     if (lossPerCost.lte(0) || this.riskAmount <= 0) return new Decimal(0);
 
-    let totalCost = new Decimal(this.riskAmount).div(lossPerCost);
+    console.log(`==================== Total Cost ====================`)
+
+    let margin = new Decimal(this.riskAmount).div(lossPerCost);
+    console.log(`margin: ${margin} = ${this.riskAmount} / ${lossPerCost}`)
 
     if (accountBalance > 0 && this.leverage > 0) {
-      const targetNotional = new Decimal(accountBalance).times(this.leverage);
-      if (targetNotional.gt(0) && totalCost.gt(targetNotional)) {
-        totalCost = targetNotional;
+      const notionalCost = new Decimal(accountBalance).times(this.leverage);
+      console.log(`notionalCost: ${notionalCost} = ${accountBalance} x ${this.leverage}`)
+      if (notionalCost.gt(0) && margin.gt(notionalCost)) {
+        margin = notionalCost;
       }
     }
 
-    return totalCost;
+    return margin;
   }
 
   private _distributeCost (
@@ -134,6 +146,8 @@ export class PositionModel implements IPosition {
   ) {
     if (totalCost.lte(0) || totalRatio.lte(0)) return;
 
+    console.log(`==================== Distribute cost: ${totalCost} ====================`)
+
     let totalFilledSize = new Decimal(0);
     let totalFilledCost = new Decimal(0);
     let totalFilledFee = new Decimal(0);
@@ -141,7 +155,7 @@ export class PositionModel implements IPosition {
     let cumCost = new Decimal(0);
 
     this.steps.forEach((step, idx) => {
-      console.log(` ==================== Step ${idx} ====================`)
+      console.log(`==================== Step ${idx} ====================`)
       const ratio = setup.resizingRatios[idx] || 0;
       const ratioDec = new Decimal(ratio);
       const normalizedRatio = ratioDec.div(totalRatio);
@@ -154,22 +168,21 @@ export class PositionModel implements IPosition {
       console.log(`stepCost: ${stepCost} = ${totalCost} x ${normalizedRatio}`)
       const feeRate = step.orderType === 'maker' ? (fees?.makerFee || 0) : (fees?.takerFee || 0);
       const stepSize = stepCost.div(priceDec);
-      const stepCostFromSize = stepSize.times(priceDec);
-      console.log(`stepCostFromSize: ${stepCostFromSize} = ${stepSize} x ${priceDec}`)
-      const stepFee = stepCostFromSize.times(feeRate);
-      console.log(`stepFee: ${stepFee} = ${stepCostFromSize} x ${feeRate}`)
+      console.log(`stepSize: ${stepSize} = ${stepCost} / ${priceDec}`)
+      const stepFee = stepCost.times(feeRate);
+      console.log(`stepFee: ${stepFee} = ${stepCost} x ${feeRate}`)
       step.size = stepSize.toNumber();
-      step.cost = stepCostFromSize.toNumber();
+      step.cost = stepCost.toNumber();
       step.fee = stepFee.toNumber();
 
       cumSize = cumSize.plus(stepSize);
-      cumCost = cumCost.plus(stepCostFromSize).plus(stepFee);
+      cumCost = cumCost.plus(stepCost).plus(stepFee);
       step.predictedBE = cumSize.gt(0) ? cumCost.div(cumSize).toNumber() : 0;
       console.log(`step.predictedBE: ${step.predictedBE} = ${cumCost} / ${cumSize}`)
 
       if (step.isFilled) {
         totalFilledSize = totalFilledSize.plus(stepSize);
-        totalFilledCost = totalFilledCost.plus(stepCostFromSize).plus(stepFee);
+        totalFilledCost = totalFilledCost.plus(stepCost).plus(stepFee);
         totalFilledFee = totalFilledFee.plus(stepFee);
       }
     });

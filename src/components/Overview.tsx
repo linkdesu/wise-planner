@@ -304,6 +304,7 @@ export function Overview () {
                     <Table.ColumnHeader textAlign="end">Leverage</Table.ColumnHeader>
                     <Table.ColumnHeader textAlign="end">Margin</Table.ColumnHeader>
                     <Table.ColumnHeader textAlign="end">Notional Cost</Table.ColumnHeader>
+                    <Table.ColumnHeader textAlign="end">Stop Loss Price</Table.ColumnHeader>
                     <Table.ColumnHeader textAlign="end">Paid Fees</Table.ColumnHeader>
                     <Table.ColumnHeader textAlign="end">Realized PnL</Table.ColumnHeader>
                     <Table.ColumnHeader textAlign="end">Actions</Table.ColumnHeader>
@@ -323,6 +324,7 @@ export function Overview () {
                         <Table.Cell textAlign="end">{position.leverage ? `${position.leverage}x` : '-'}</Table.Cell>
                         <Table.Cell textAlign="end">{marginEstimate > 0 ? `$${marginEstimate.toFixed(4)}` : '-'}</Table.Cell>
                         <Table.Cell textAlign="end">{notionalCost > 0 ? `$${notionalCost.toFixed(4)}` : '-'}</Table.Cell>
+                        <Table.Cell textAlign="end">{position.stopLossPrice > 0 ? `$${position.stopLossPrice.toFixed(4)}` : '-'}</Table.Cell>
                         <Table.Cell textAlign="end">{position.feeTotal ? `$${position.feeTotal.toFixed(4)}` : '-'}</Table.Cell>
                         <Table.Cell textAlign="end">
                           <HStack justify="flex-end">

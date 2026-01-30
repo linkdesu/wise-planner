@@ -409,7 +409,7 @@ function PositionCard ({ position, setups, allSetups, accountBalance, accountFee
                   />
                 </GridItem>
                 <GridItem colSpan={3}>
-                  <Text fontSize="sm" fontWeight="bold">{step.size.toFixed(4)}</Text>
+                  <Text fontSize="sm" fontWeight="bold">{step.size.toFixed(6)}</Text>
                 </GridItem>
                 <GridItem colSpan={2}>
                   <Text fontSize="xs" color="muted">${step.cost.toFixed(4)}</Text>
