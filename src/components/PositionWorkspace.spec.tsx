@@ -176,7 +176,7 @@ describe('PositionWorkspace', () => {
       within(marginControl as HTMLElement).getByText(`$${expected.marginEst.toFixed(4)}`)
     ).toBeInTheDocument();
     expect(
-      within(beControl as HTMLElement).getByText(expected.predictedBE.toFixed(2))
+      within(beControl as HTMLElement).getByText(expected.predictedBE.toFixed(4))
     ).toBeInTheDocument();
     expect(
       within(totalSizeControl as HTMLElement).getByText(expected.totalSize.toFixed(4))
@@ -238,7 +238,7 @@ describe('PositionWorkspace', () => {
       within(marginControl as HTMLElement).getByText(`$${expected.marginEst.toFixed(4)}`)
     ).toBeInTheDocument();
     expect(
-      within(beControl as HTMLElement).getByText(expected.predictedBE.toFixed(2))
+      within(beControl as HTMLElement).getByText(expected.predictedBE.toFixed(4))
     ).toBeInTheDocument();
     expect(
       within(totalSizeControl as HTMLElement).getByText(expected.totalSize.toFixed(4))

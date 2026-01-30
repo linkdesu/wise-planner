@@ -102,12 +102,6 @@ export function Overview() {
     currentPage * savedPerPage
   );
 
-  useEffect(() => {
-    if (historyPage !== currentPage) {
-      setHistoryPage(currentPage);
-    }
-  }, [historyPage, currentPage]);
-
   const handlePerPageChange = (raw: string) => {
     const parsed = Number(raw);
     const next = Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 1;
