@@ -17,12 +17,12 @@ import {
 import dayjs from 'dayjs';
 import { ChevronLeft, ChevronRight, Trash } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { DATETIME_Format, OVERVIEW_HISTORY_PER_PAGE_KEY } from '../const';
+import { DATETIME_FORMAT, OVERVIEW_HISTORY_PER_PAGE_KEY } from '../const';
 import { usePlanner } from '../hooks/usePlanner';
 import { MultiSelect } from './ui/MultiSelect';
 import { NumberInput } from './ui/NumberInput';
 
-export function Overview() {
+export function Overview () {
   const {
     accounts,
     setups,
@@ -70,7 +70,7 @@ export function Overview() {
   const winRate =
     allPositions.filter((p) => p.position.status === 'closed').length > 0
       ? (winPositions.length / allPositions.filter((p) => p.position.status === 'closed').length) *
-        100
+      100
       : 0;
 
   const [historyPage, setHistoryPage] = useState(1);
@@ -353,7 +353,7 @@ export function Overview() {
                     return (
                       <Table.Row key={position.id}>
                         <Table.Cell>
-                          {dayjs(position.closedAt || position.createdAt).format(DATETIME_Format)}
+                          {dayjs(position.closedAt || position.createdAt).format(DATETIME_FORMAT)}
                         </Table.Cell>
                         <Table.Cell>{accountName}</Table.Cell>
                         <Table.Cell>{setupName}</Table.Cell>

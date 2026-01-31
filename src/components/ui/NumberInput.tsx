@@ -1,5 +1,5 @@
 import { NumberInput as ChakraNumberInput } from '@chakra-ui/react';
-import { useState } from 'react';
+import { forwardRef, useImperativeHandle, useState } from 'react';
 
 type RootProps = ChakraNumberInput.RootProps;
 type InputProps = ChakraNumberInput.InputProps;
@@ -11,14 +11,14 @@ export interface NumberInputProps extends Omit<RootProps, 'onValueChange' | 'val
   control?: boolean;
 }
 
-export function NumberInput({
-  value,
-  onCommit,
-  inputProps,
-  control = false,
-  children,
-  ...rootProps
-}: NumberInputProps) {
+export type NumberInputHandle = {
+  resetValue: (value: number) => void;
+};
+
+export const NumberInput = forwardRef<NumberInputHandle, NumberInputProps>(function NumberInput(
+  { value, onCommit, inputProps, control = false, children, ...rootProps },
+  ref
+) {
   const [draft, setDraft] = useState(value ?? '');
   const sanitize = (raw: string) => raw.replace(/[,_]/g, '');
   const parsed = Number(sanitize(draft));
@@ -29,6 +29,10 @@ export function NumberInput({
     setDraft(sanitized);
     onCommit?.(sanitized);
   };
+
+  useImperativeHandle(ref, () => ({
+    resetValue: (newValue: number) => setDraft(newValue.toString() ?? ''),
+  }));
 
   return (
     <ChakraNumberInput.Root {...rootProps} value={draft} onValueChange={(e) => setDraft(e.value)}>
@@ -51,4 +55,4 @@ export function NumberInput({
       />
     </ChakraNumberInput.Root>
   );
-}
+});

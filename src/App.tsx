@@ -5,11 +5,11 @@ import { Overview } from './components/Overview';
 import { PositionWorkspace } from './components/PositionWorkspace';
 import { SetupManager } from './components/SetupManager';
 import { Toaster, toaster } from './components/ui/toaster';
-import { FILE_DATETIME_Format } from './const';
+import { FILE_DATETIME_FORMAT } from './const';
 import { usePlanner } from './hooks/usePlanner';
 import system from './theme/monokai';
 
-function App() {
+function App () {
   const { exportData, importData, clearAllData, isLoading } = usePlanner();
   const showDevTools = new URLSearchParams(window.location.search).has('dev');
 
@@ -19,7 +19,7 @@ function App() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `planner_backup_${dayjs().format(FILE_DATETIME_Format).replace(' ', '_')}.json`;
+    a.download = `planner_backup_${dayjs().format(FILE_DATETIME_FORMAT).replace(' ', '_')}.json`;
     a.click();
   };
 

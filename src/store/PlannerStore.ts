@@ -1,4 +1,5 @@
 import { AccountModel } from '../models/AccountModel';
+import { AccountChangeModel } from '../models/AccountChangeModel';
 import { Config } from '../models/ConfigModel';
 import { PositionModel } from '../models/PositionModel';
 import { SetupModel } from '../models/SetupModel';
@@ -18,6 +19,7 @@ function isNonEmptyKey(key: unknown): key is string {
 
 export class PlannerStore {
   accounts: AccountModel[] = [];
+  accountChanges: AccountChangeModel[] = [];
   setups: SetupModel[] = [];
   positions: PositionModel[] = [];
   configs: Config[] = [];
@@ -28,6 +30,7 @@ export class PlannerStore {
   // Snapshot for useSyncExternalStore
   snapshot = {
     accounts: this.accounts,
+    accountChanges: this.accountChanges,
     setups: this.setups,
     positions: this.positions,
     configs: this.configs,
@@ -91,8 +94,10 @@ export class PlannerStore {
   }
 
   async loadFromDB() {
-    const [storedAccounts, storedSetups, storedPositions, storedConfigs] = await Promise.all([
+    const [storedAccounts, storedAccountChanges, storedSetups, storedPositions, storedConfigs] =
+      await Promise.all([
       db.getAllAccounts(),
+      db.getAllAccountChanges(),
       db.getAllSetups(),
       db.getAllPositions(),
       db.getAllConfigs(),
@@ -100,6 +105,7 @@ export class PlannerStore {
 
     // Re-hydrate plain objects into Models including methods
     this.accounts = storedAccounts.map((d) => new AccountModel(d));
+    this.accountChanges = storedAccountChanges.map((d) => new AccountChangeModel(d));
     this.setups = storedSetups.map((d) => new SetupModel(d));
     this.positions = storedPositions.map((d) => new PositionModel(d));
 
@@ -144,6 +150,7 @@ export class PlannerStore {
   updateSnapshot() {
     this.snapshot = {
       accounts: [...this.accounts],
+      accountChanges: [...this.accountChanges],
       setups: [...this.setups],
       positions: [...this.positions],
       configs: [...this.configs],
@@ -154,7 +161,7 @@ export class PlannerStore {
 
   recalcAllAccounts() {
     this.accounts.forEach((acc) => {
-      acc.calculateStats(this.positions);
+      acc.calculateStats(this.positions, this.accountChanges);
     });
   }
 
@@ -204,14 +211,92 @@ export class PlannerStore {
 
   deleteAccount(id: string) {
     const positionsToDelete = this.positions.filter((p) => p.accountId === id);
+    const changesToDelete = this.accountChanges.filter((change) => change.accountId === id);
     this.accounts = this.accounts.filter((a) => a.id !== id);
+    this.accountChanges = this.accountChanges.filter((change) => change.accountId !== id);
     this.positions = this.positions.filter((p) => p.accountId !== id);
     this.recalcAllAccounts();
     this.updateSnapshot();
     Promise.all([
       ...positionsToDelete.map((position) => db.deletePosition(position.id)),
+      ...changesToDelete.map((change) => db.deleteAccountChange(change.id)),
       db.deleteAccount(id),
     ]).catch((e) => console.error('DB Delete Error', e));
+  }
+
+  private getManualDeltaForAccount(accountId: string, changes: AccountChangeModel[]) {
+    let manualDelta = 0;
+    changes.forEach((change) => {
+      if (change.accountId !== accountId) return;
+      const amount = Number(change.amount) || 0;
+      if (change.type === 'deposit' || change.type === 'win') {
+        manualDelta += amount;
+      } else {
+        manualDelta -= amount;
+      }
+    });
+    return manualDelta;
+  }
+
+  private computeProjectedBalance(
+    accountId: string,
+    changes: AccountChangeModel[] = this.accountChanges
+  ) {
+    const account = this.accounts.find((a) => a.id === accountId);
+    if (!account) return 0;
+    const realizedPnL = this.positions.reduce((sum, position) => {
+      if (position.accountId !== accountId) return sum;
+      if (position.status !== 'closed' || position.pnl === undefined) return sum;
+      return sum + position.pnl;
+    }, 0);
+    const manualDelta = this.getManualDeltaForAccount(accountId, changes);
+    return account.initialBalance + realizedPnL + manualDelta;
+  }
+
+  private canApplyAccountChanges(accountId: string, changes: AccountChangeModel[]) {
+    return this.computeProjectedBalance(accountId, changes) >= 0;
+  }
+
+  // CRUD for Account Changes
+  addAccountChange(change: AccountChangeModel) {
+    const nextChanges = [...this.accountChanges, change];
+    if (!this.canApplyAccountChanges(change.accountId, nextChanges)) {
+      return false;
+    }
+    this.accountChanges.push(change);
+    this.recalcAllAccounts();
+    this.updateSnapshot();
+    db.saveAccountChange(change).catch((e) => console.error('DB Save Error', e));
+    return true;
+  }
+
+  updateAccountChange(change: AccountChangeModel) {
+    const idx = this.accountChanges.findIndex((c) => c.id === change.id);
+    if (idx === -1) return false;
+    const nextChanges = [...this.accountChanges];
+    nextChanges[idx] = change;
+    if (!this.canApplyAccountChanges(change.accountId, nextChanges)) {
+      return false;
+    }
+    this.accountChanges[idx] = change;
+    this.recalcAllAccounts();
+    this.updateSnapshot();
+    db.saveAccountChange(change).catch((e) => console.error('DB Update Error', e));
+    return true;
+  }
+
+  deleteAccountChange(id: string) {
+    const existing = this.accountChanges.find((c) => c.id === id);
+    if (!existing) return false;
+    const nextChanges = this.accountChanges.filter((c) => c.id !== id);
+    if (!this.canApplyAccountChanges(existing.accountId, nextChanges)) {
+      return false;
+    }
+    this.accountChanges = nextChanges;
+    this.recalcAllAccounts();
+    this.updateSnapshot();
+    db.deleteAccountChange(id).catch((e) => console.error('DB Delete Error', e));
+    return true;
   }
 
   // CRUD for Setups
@@ -277,6 +362,7 @@ export class PlannerStore {
     return JSON.stringify(
       {
         accounts: this.accounts,
+        accountChanges: this.accountChanges,
         setups: this.setups,
         positions: this.positions,
         configs: this.configs,
@@ -290,6 +376,9 @@ export class PlannerStore {
     try {
       const data = JSON.parse(json);
       const accounts = (data.accounts || []).map((d: Partial<AccountModel>) => new AccountModel(d));
+      const accountChanges = (data.accountChanges || []).map(
+        (d: Partial<AccountChangeModel>) => new AccountChangeModel(d)
+      );
       const setups = (data.setups || []).map((d: Partial<SetupModel>) => new SetupModel(d));
       const positions = (data.positions || []).map(
         (d: Partial<PositionModel>) => new PositionModel(d)
@@ -306,10 +395,11 @@ export class PlannerStore {
       );
 
       // Update DB
-      await db.bulkSave(accounts, setups, positions, cleanedConfigs);
+      await db.bulkSave(accounts, accountChanges, setups, positions, cleanedConfigs);
 
       // Update Memory
       this.accounts = accounts;
+      this.accountChanges = accountChanges;
       this.setups = setups;
       this.positions = positions;
       this.setConfigs(cleanedConfigs);

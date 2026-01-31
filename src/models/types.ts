@@ -49,3 +49,14 @@ export interface IAccount {
   takerFee: number; // Percentage, e.g. 0.0005 for 0.05%
   makerFee: number; // Percentage
 }
+
+export type AccountChangeType = 'deposit' | 'withdraw' | 'loss' | 'win';
+
+export interface IAccountChange {
+  id: string;
+  accountId: string;
+  amount: number;
+  type: AccountChangeType;
+  note: string;
+  createdAt: number;
+}

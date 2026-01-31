@@ -1,5 +1,5 @@
 import { PositionModel } from './PositionModel';
-import type { IAccount } from './types';
+import type { IAccount, IAccountChange } from './types';
 
 export class AccountModel implements IAccount {
   id: string;
@@ -18,9 +18,10 @@ export class AccountModel implements IAccount {
     this.makerFee = data.makerFee || 0.0002; // 0.02% default
   }
 
-  calculateStats(positions: PositionModel[]) {
+  calculateStats(positions: PositionModel[], changes: IAccountChange[] = []) {
     let realizedPnL = 0;
     let totalFees = 0;
+    let manualDelta = 0;
 
     // Only count closed positions for realized balance
     positions.forEach((p) => {
@@ -31,7 +32,17 @@ export class AccountModel implements IAccount {
       }
     });
 
-    this.currentBalance = this.initialBalance + realizedPnL; // Net of fees usually, assuming PnL is Net
-    return { realizedPnL, totalFees, currentBalance: this.currentBalance };
+    changes.forEach((change) => {
+      if (change.accountId !== this.id) return;
+      const amount = Number(change.amount) || 0;
+      if (change.type === 'deposit' || change.type === 'win') {
+        manualDelta += amount;
+      } else {
+        manualDelta -= amount;
+      }
+    });
+
+    this.currentBalance = this.initialBalance + realizedPnL + manualDelta; // Net of fees usually, assuming PnL is Net
+    return { realizedPnL, totalFees, manualDelta, currentBalance: this.currentBalance };
   }
 }

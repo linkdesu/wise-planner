@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import { AccountChangeModel } from '../models/AccountChangeModel';
 import { AccountModel } from '../models/AccountModel';
 import { PositionModel } from '../models/PositionModel';
 import { SetupModel } from '../models/SetupModel';
@@ -13,6 +14,7 @@ export function usePlanner() {
 
   return {
     accounts: state.accounts,
+    accountChanges: state.accountChanges,
     setups: state.setups,
     positions: state.positions,
     configs: state.configs,
@@ -20,6 +22,9 @@ export function usePlanner() {
     addAccount: (a: AccountModel) => plannerStore.addAccount(a),
     updateAccount: (a: AccountModel) => plannerStore.updateAccount(a),
     deleteAccount: (id: string) => plannerStore.deleteAccount(id),
+    addAccountChange: (change: AccountChangeModel) => plannerStore.addAccountChange(change),
+    updateAccountChange: (change: AccountChangeModel) => plannerStore.updateAccountChange(change),
+    deleteAccountChange: (id: string) => plannerStore.deleteAccountChange(id),
     addSetup: (s: SetupModel) => plannerStore.addSetup(s),
     updateSetup: (s: SetupModel) => plannerStore.updateSetup(s),
     deleteSetup: (id: string) => plannerStore.deleteSetup(id),

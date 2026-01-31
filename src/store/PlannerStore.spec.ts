@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { AccountChangeModel } from '../models/AccountChangeModel';
 import { AccountModel } from '../models/AccountModel';
 import { PositionModel } from '../models/PositionModel';
 import { SetupModel } from '../models/SetupModel';
@@ -9,11 +10,14 @@ vi.mock('./db', () => {
   const resolved = Promise.resolve();
   return {
     getAllAccounts: vi.fn(async () => []),
+    getAllAccountChanges: vi.fn(async () => []),
     getAllSetups: vi.fn(async () => []),
     getAllPositions: vi.fn(async () => []),
     getAllConfigs: vi.fn(async () => []),
     saveAccount: vi.fn(async () => resolved),
+    saveAccountChange: vi.fn(async () => resolved),
     deleteAccount: vi.fn(async () => resolved),
+    deleteAccountChange: vi.fn(async () => resolved),
     saveSetup: vi.fn(async () => resolved),
     deleteSetup: vi.fn(async () => resolved),
     savePosition: vi.fn(async () => resolved),
@@ -61,6 +65,7 @@ describe('PlannerStore deletion rules', () => {
     });
 
     vi.mocked(db.getAllAccounts).mockResolvedValue([account]);
+    vi.mocked(db.getAllAccountChanges).mockResolvedValue([]);
     vi.mocked(db.getAllSetups).mockResolvedValue([setup]);
     vi.mocked(db.getAllPositions).mockResolvedValue([pos1, pos2]);
     vi.mocked(db.getAllConfigs).mockResolvedValue([]);
@@ -94,6 +99,7 @@ describe('PlannerStore deletion rules', () => {
     });
 
     vi.mocked(db.getAllAccounts).mockResolvedValue([account]);
+    vi.mocked(db.getAllAccountChanges).mockResolvedValue([]);
     vi.mocked(db.getAllSetups).mockResolvedValue([setup]);
     vi.mocked(db.getAllPositions).mockResolvedValue([pos]);
     vi.mocked(db.getAllConfigs).mockResolvedValue([]);
@@ -119,6 +125,7 @@ describe('PlannerStore deletion rules', () => {
     });
 
     vi.mocked(db.getAllAccounts).mockResolvedValue([account]);
+    vi.mocked(db.getAllAccountChanges).mockResolvedValue([]);
     vi.mocked(db.getAllSetups).mockResolvedValue([setup]);
     vi.mocked(db.getAllPositions).mockResolvedValue([]);
     vi.mocked(db.getAllConfigs).mockResolvedValue([]);
@@ -130,5 +137,40 @@ describe('PlannerStore deletion rules', () => {
 
     expect(store.setups.find((s) => s.id === setup.id)).toBeUndefined();
     expect(db.deleteSetup).toHaveBeenCalledWith(setup.id);
+  });
+
+  it('recalculates account balance with manual changes', async () => {
+    const account = new AccountModel({ id: 'acc-1', name: 'A', initialBalance: 100 });
+    const pos = new PositionModel({
+      id: 'pos-1',
+      accountId: account.id,
+      status: 'closed',
+      pnl: 15,
+      closedAt: Date.now(),
+    });
+    const deposit = new AccountChangeModel({
+      id: 'chg-1',
+      accountId: account.id,
+      type: 'deposit',
+      amount: 10,
+    });
+    const loss = new AccountChangeModel({
+      id: 'chg-2',
+      accountId: account.id,
+      type: 'loss',
+      amount: 3,
+    });
+
+    vi.mocked(db.getAllAccounts).mockResolvedValue([account]);
+    vi.mocked(db.getAllAccountChanges).mockResolvedValue([deposit, loss]);
+    vi.mocked(db.getAllSetups).mockResolvedValue([]);
+    vi.mocked(db.getAllPositions).mockResolvedValue([pos]);
+    vi.mocked(db.getAllConfigs).mockResolvedValue([]);
+
+    const store = new PlannerStore();
+    await waitForLoaded(store);
+
+    const updated = store.accounts.find((a) => a.id === account.id);
+    expect(updated?.currentBalance).toBe(122);
   });
 });
