@@ -17,6 +17,7 @@ import {
   createListCollection,
 } from '@chakra-ui/react';
 import { Trash, X } from 'lucide-react';
+import { useState } from 'react';
 import { PositionModel } from '../models/PositionModel';
 import { SetupModel } from '../models/SetupModel';
 import type { OrderType } from '../models/types';
@@ -45,6 +46,10 @@ export function PositionEditor({
   onRequestDelete,
   onClose,
 }: PositionEditorProps) {
+  const [riskError, setRiskError] = useState<string | null>(null);
+  const [stopLossError, setStopLossError] = useState<string | null>(null);
+  const [leverageError, setLeverageError] = useState<string | null>(null);
+
   if (!position) {
     return (
       <Dialog.Root open={open} onOpenChange={({ open: nextOpen }) => !nextOpen && onClose()}>
@@ -79,6 +84,7 @@ export function PositionEditor({
       { label: 'Maker', value: 'maker' },
     ],
   });
+
   const handleSetupChange = (setupId: string) => {
     const setup = setups.find((s) => s.id === setupId);
     if (setup) {
@@ -100,6 +106,24 @@ export function PositionEditor({
   const totalFees = position.feeTotal || 0;
   const marginUsagePct = accountBalance > 0 ? (marginEst / accountBalance) * 100 : 0;
   const canClose = position.pnl !== undefined && !Number.isNaN(position.pnl);
+  const stepPrices = position.steps.map((step) => step.price).filter((price) => price > 0);
+  const minStepPrice = stepPrices.length > 0 ? Math.min(...stepPrices) : null;
+  const maxStepPrice = stepPrices.length > 0 ? Math.max(...stepPrices) : null;
+  const computedRiskError = position.riskAmount <= 0 ? 'Risk amount must be greater than 0.' : null;
+  const computedLeverageError = position.leverage <= 0 ? 'Leverage must be greater than 0.' : null;
+  const computedStopLossError =
+    minStepPrice === null || maxStepPrice === null
+      ? null
+      : position.side === 'long'
+        ? position.stopLossPrice >= minStepPrice
+          ? 'Stop loss must be below the lowest step price for long.'
+          : null
+        : position.stopLossPrice <= maxStepPrice
+          ? 'Stop loss must be above the highest step price for short.'
+          : null;
+  const riskErrorMessage = riskError ?? computedRiskError;
+  const leverageErrorMessage = leverageError ?? computedLeverageError;
+  const stopLossErrorMessage = stopLossError ?? computedStopLossError;
 
   return (
     <Dialog.Root open={open} onOpenChange={({ open: nextOpen }) => !nextOpen && onClose()}>
@@ -139,6 +163,7 @@ export function PositionEditor({
                           <Switch.Root
                             checked={position.side === 'short'}
                             onCheckedChange={(e) => {
+                              setStopLossError(null);
                               onUpdate((p) => {
                                 p.side = e.checked ? 'short' : 'long';
                                 const setup = setups.find((s) => s.id === p.setupId);
@@ -226,18 +251,25 @@ export function PositionEditor({
                   </GridItem>
 
                   <GridItem colSpan={2}>
-                    <Field.Root>
+                    <Field.Root invalid={Boolean(riskErrorMessage)}>
                       <Field.Label fontSize="xs" color="muted">
                         Risk Amount ($)
                       </Field.Label>
                       <NumberInput
-                        inputProps={{ color: 'fg' }}
+                        inputProps={{
+                          color: riskErrorMessage ? 'danger' : 'fg',
+                          'aria-invalid': Boolean(riskErrorMessage),
+                        }}
                         key={`risk-${position.id}-${position.riskAmount}`}
                         value={position.riskAmount.toString()}
                         min={1}
                         onCommit={(raw) => {
                           const next = Number(raw);
-                          if (!Number.isFinite(next)) return;
+                          if (!Number.isFinite(next) || next <= 0) {
+                            setRiskError('Risk amount must be greater than 0.');
+                            return;
+                          }
+                          setRiskError(null);
                           onUpdate((p) => {
                             p.riskAmount = next;
                             const setup = setups.find((s) => s.id === p.setupId);
@@ -250,21 +282,47 @@ export function PositionEditor({
                           });
                         }}
                       />
+                      {riskErrorMessage && (
+                        <Text fontSize="xs" color="danger">
+                          {riskErrorMessage}
+                        </Text>
+                      )}
                     </Field.Root>
                   </GridItem>
                   <GridItem colSpan={2}>
-                    <Field.Root>
+                    <Field.Root invalid={Boolean(stopLossErrorMessage)}>
                       <Field.Label fontSize="xs" color="muted">
                         Stop Loss Price
                       </Field.Label>
                       <NumberInput
-                        inputProps={{ color: 'fg' }}
+                        inputProps={{
+                          color: stopLossErrorMessage ? 'danger' : 'fg',
+                          'aria-invalid': Boolean(stopLossErrorMessage),
+                        }}
                         key={`sl-${position.id}-${position.stopLossPrice}`}
                         value={position.stopLossPrice.toString()}
                         min={0}
                         onCommit={(raw) => {
                           const next = Number(raw);
-                          if (!Number.isFinite(next)) return;
+                          if (!Number.isFinite(next)) {
+                            setStopLossError('Stop loss must be a valid number.');
+                            return;
+                          }
+                          const invalidStopLoss =
+                            minStepPrice === null || maxStepPrice === null
+                              ? false
+                              : position.side === 'long'
+                                ? next >= minStepPrice
+                                : next <= maxStepPrice;
+                          if (invalidStopLoss) {
+                            setStopLossError(
+                              position.side === 'long'
+                                ? 'Stop loss must be below the lowest step price for long position.'
+                                : 'Stop loss must be above the highest step price for short position.'
+                            );
+                            return;
+                          }
+                          setStopLossError(null);
                           onUpdate((p) => {
                             p.stopLossPrice = next;
                             const setup = setups.find((s) => s.id === p.setupId);
@@ -277,23 +335,34 @@ export function PositionEditor({
                           });
                         }}
                       />
+                      {stopLossErrorMessage && (
+                        <Text fontSize="xs" color="danger">
+                          {stopLossErrorMessage}
+                        </Text>
+                      )}
                     </Field.Root>
                   </GridItem>
                   <GridItem colSpan={2}>
-                    <Field.Root>
+                    <Field.Root invalid={Boolean(leverageErrorMessage)}>
                       <Field.Label fontSize="xs" color="muted">
                         Leverage (x)
                       </Field.Label>
                       <NumberInput
-                        inputProps={{ color: 'fg' }}
+                        inputProps={{
+                          color: leverageErrorMessage ? 'danger' : 'fg',
+                          'aria-invalid': Boolean(leverageErrorMessage),
+                        }}
                         key={`lev-${position.id}-${position.leverage || 1}`}
                         value={(position.leverage || 1).toString()}
                         min={1}
                         onCommit={(raw) => {
                           const nextRaw = Number(raw);
-                          const next = Number.isFinite(nextRaw)
-                            ? Math.min(125, Math.max(1, nextRaw))
-                            : 1;
+                          if (!Number.isFinite(nextRaw) || nextRaw <= 0) {
+                            setLeverageError('Leverage must be greater than 0.');
+                            return;
+                          }
+                          const next = Math.min(125, nextRaw);
+                          setLeverageError(null);
                           onUpdate((p) => {
                             p.leverage = next;
                             const setup = setups.find((s) => s.id === p.setupId);
@@ -306,6 +375,11 @@ export function PositionEditor({
                           });
                         }}
                       />
+                      {leverageErrorMessage && (
+                        <Text fontSize="xs" color="danger">
+                          {leverageErrorMessage}
+                        </Text>
+                      )}
                     </Field.Root>
                   </GridItem>
 
@@ -558,7 +632,7 @@ export function PositionEditor({
                           })
                         }
                       >
-                        Close
+                        Close Position
                       </Button>
                     </HStack>
                   </GridItem>

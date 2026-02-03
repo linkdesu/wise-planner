@@ -74,18 +74,49 @@ export class PositionModel implements IPosition {
     const totalRatio = this._getTotalRatio(setup);
     if (totalRatio.lte(0)) return;
 
-    const lossPerCost = this._calcLossPerCost(setup, totalRatio);
-    if (lossPerCost.lte(0)) return;
+    console.log(`==================== Calculate Steps Size for ${setup.name} ====================`);
 
-    const totalCost = this._calcNationalCostFromRisk(accountBalance, lossPerCost);
-    this._distributeCost(totalCost, setup, totalRatio, fees);
+    const unfilledTotalRatio = this._getUnfilledTotalRatio(setup);
+    const filledRisk = this._calcFilledRisk();
+    const remainingRisk = Math.max(this.riskAmount - filledRisk, 0);
+    console.log(`remainingRisk: ${remainingRisk} = ${this.riskAmount} - ${filledRisk}`);
+    const lossPerCost = unfilledTotalRatio.gt(0)
+      ? this._calcLossPerCost(setup, unfilledTotalRatio, (_, step) => !step.isFilled)
+      : new Decimal(0);
+
+    const totalCost =
+      remainingRisk > 0 && lossPerCost.gt(0)
+        ? this._calcNationalCostFromRisk(accountBalance, lossPerCost, remainingRisk)
+        : new Decimal(0);
+    this._distributeCost(totalCost, setup, fees);
   }
 
   private _getTotalRatio(setup: ISetup): Decimal {
     return setup.resizingRatios.reduce((sum, ratio) => sum.plus(ratio), new Decimal(0));
   }
 
-  private _calcLossPerCost(setup: ISetup, totalRatio: Decimal): Decimal {
+  private _getUnfilledTotalRatio(setup: ISetup): Decimal {
+    return setup.resizingRatios.reduce((sum, ratio, idx) => {
+      if (this.steps[idx]?.isFilled) return sum;
+      return sum.plus(ratio);
+    }, new Decimal(0));
+  }
+
+  private _calcFilledRisk(): number {
+    return this.steps.reduce((sum, step) => {
+      if (!step.isFilled || step.price <= 0 || step.size <= 0) return sum;
+      const lossPerUnit =
+        this.side === 'long' ? step.price - this.stopLossPrice : this.stopLossPrice - step.price;
+      if (lossPerUnit <= 0) return sum;
+      return sum + step.size * lossPerUnit;
+    }, 0);
+  }
+
+  private _calcLossPerCost(
+    setup: ISetup,
+    totalRatio: Decimal,
+    includeStep?: (idx: number, step: IResizingStep) => boolean
+  ): Decimal {
     if (totalRatio.lte(0)) return new Decimal(0);
 
     let lossPerCost = new Decimal(0);
@@ -93,7 +124,10 @@ export class PositionModel implements IPosition {
     console.log(`==================== Loss Per Cost ====================`);
 
     this.steps.forEach((step, idx) => {
+      if (includeStep && !includeStep(idx, step)) return;
+
       console.log(`==================== Step ${idx} ====================`);
+
       const ratio = setup.resizingRatios[idx] || 0;
       const ratioDec = new Decimal(ratio);
       if (ratioDec.lte(0) || step.price <= 0) return;
@@ -120,13 +154,17 @@ export class PositionModel implements IPosition {
     return lossPerCost;
   }
 
-  private _calcNationalCostFromRisk(accountBalance: number, lossPerCost: Decimal): Decimal {
-    if (lossPerCost.lte(0) || this.riskAmount <= 0) return new Decimal(0);
+  private _calcNationalCostFromRisk(
+    accountBalance: number,
+    lossPerCost: Decimal,
+    riskAmount: number
+  ): Decimal {
+    if (lossPerCost.lte(0) || riskAmount <= 0) return new Decimal(0);
 
     console.log(`==================== Total Cost ====================`);
 
-    let margin = new Decimal(this.riskAmount).div(lossPerCost);
-    console.log(`margin: ${margin} = ${this.riskAmount} / ${lossPerCost}`);
+    let margin = new Decimal(riskAmount).div(lossPerCost);
+    console.log(`margin: ${margin} = ${riskAmount} / ${lossPerCost}`);
 
     if (accountBalance > 0 && this.leverage > 0) {
       const notionalCost = new Decimal(accountBalance).times(this.leverage);
@@ -142,32 +180,63 @@ export class PositionModel implements IPosition {
   private _distributeCost(
     totalCost: Decimal,
     setup: ISetup,
-    totalRatio: Decimal,
     fees?: { makerFee: number; takerFee: number }
   ) {
-    if (totalCost.lte(0) || totalRatio.lte(0)) return;
-
     console.log(`==================== Distribute cost: ${totalCost} ====================`);
 
     let totalFilledSize = new Decimal(0);
     let totalFilledCost = new Decimal(0);
     let totalFilledFee = new Decimal(0);
-    let cumSize = new Decimal(0);
-    let cumCost = new Decimal(0);
+    let cumulativeSize = new Decimal(0);
+    let cumulativeCost = new Decimal(0);
+    let totalUnfilledRatio = new Decimal(0);
 
     this.steps.forEach((step, idx) => {
-      console.log(`==================== Step ${idx} ====================`);
       const ratio = setup.resizingRatios[idx] || 0;
       const ratioDec = new Decimal(ratio);
-      const normalizedRatio = ratioDec.div(totalRatio);
-      console.log(`normalizedRatio: ${normalizedRatio} = ${ratioDec} / ${totalRatio}`);
+      if (!step.isFilled && ratioDec.gt(0)) {
+        totalUnfilledRatio = totalUnfilledRatio.plus(ratioDec);
+      }
+    });
+    const remainingCost = totalCost;
+
+    this.steps.forEach((step, idx) => {
+      const ratio = setup.resizingRatios[idx] || 0;
+      const ratioDec = new Decimal(ratio);
       const priceDec = new Decimal(step.price);
 
-      if (step.price <= 0 || normalizedRatio.lte(0) || priceDec.lte(0)) return;
+      if (step.price <= 0 || priceDec.lte(0)) return;
 
-      const stepCost = totalCost.times(normalizedRatio);
-      console.log(`stepCost: ${stepCost} = ${totalCost} x ${normalizedRatio}`);
       const feeRate = step.orderType === 'maker' ? fees?.makerFee || 0 : fees?.takerFee || 0;
+
+      if (step.isFilled) {
+        const sizeDec = new Decimal(step.size);
+        const stepCost = priceDec.times(sizeDec);
+        const stepFee = stepCost.times(feeRate);
+        step.cost = stepCost.toNumber();
+        step.fee = stepFee.toNumber();
+
+        cumulativeSize = cumulativeSize.plus(sizeDec);
+        cumulativeCost = cumulativeCost.plus(stepCost).plus(stepFee);
+        step.predictedBE = cumulativeSize.gt(0) ? cumulativeCost.div(cumulativeSize).toNumber() : 0;
+
+        totalFilledSize = totalFilledSize.plus(sizeDec);
+        totalFilledCost = totalFilledCost.plus(stepCost).plus(stepFee);
+        totalFilledFee = totalFilledFee.plus(stepFee);
+        return;
+      }
+
+      console.log(`==================== Step ${idx} ====================`);
+
+      const normalizedRatio = totalUnfilledRatio.gt(0)
+        ? ratioDec.div(totalUnfilledRatio)
+        : new Decimal(0);
+      console.log(`normalizedRatio: ${normalizedRatio} = ${ratioDec} / ${totalUnfilledRatio}`);
+
+      if (normalizedRatio.lte(0) || remainingCost.lte(0)) return;
+
+      const stepCost = remainingCost.times(normalizedRatio);
+      console.log(`stepCost: ${stepCost} = ${remainingCost} x ${normalizedRatio}`);
       const stepSize = stepCost.div(priceDec);
       console.log(`stepSize: ${stepSize} = ${stepCost} / ${priceDec}`);
       const stepFee = stepCost.times(feeRate);
@@ -176,10 +245,10 @@ export class PositionModel implements IPosition {
       step.cost = stepCost.toNumber();
       step.fee = stepFee.toNumber();
 
-      cumSize = cumSize.plus(stepSize);
-      cumCost = cumCost.plus(stepCost).plus(stepFee);
-      step.predictedBE = cumSize.gt(0) ? cumCost.div(cumSize).toNumber() : 0;
-      console.log(`step.predictedBE: ${step.predictedBE} = ${cumCost} / ${cumSize}`);
+      cumulativeSize = cumulativeSize.plus(stepSize);
+      cumulativeCost = cumulativeCost.plus(stepCost).plus(stepFee);
+      step.predictedBE = cumulativeSize.gt(0) ? cumulativeCost.div(cumulativeSize).toNumber() : 0;
+      console.log(`step.predictedBE: ${step.predictedBE} = ${cumulativeCost} / ${cumulativeSize}`);
 
       if (step.isFilled) {
         totalFilledSize = totalFilledSize.plus(stepSize);
@@ -188,7 +257,7 @@ export class PositionModel implements IPosition {
       }
     });
 
-    this.predictedBE = cumSize.gt(0) ? cumCost.div(cumSize).toNumber() : 0;
+    this.predictedBE = cumulativeSize.gt(0) ? cumulativeCost.div(cumulativeSize).toNumber() : 0;
     this.currentBE = totalFilledSize.gt(0) ? totalFilledCost.div(totalFilledSize).toNumber() : 0;
     this.feeTotal = totalFilledFee.toNumber();
   }
