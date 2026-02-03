@@ -14,7 +14,6 @@ import {
   Separator,
   Switch,
   Text,
-  VStack,
   createListCollection,
 } from '@chakra-ui/react';
 import { Trash, X } from 'lucide-react';
