@@ -9,7 +9,7 @@ import { FILE_DATETIME_FORMAT } from './const';
 import { usePlanner } from './hooks/usePlanner';
 import system from './theme/monokai';
 
-function App () {
+function App() {
   const { exportData, importData, clearAllData, isLoading } = usePlanner();
   const showDevTools = new URLSearchParams(window.location.search).has('dev');
 

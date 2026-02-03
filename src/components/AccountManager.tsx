@@ -1,13 +1,24 @@
-import { Button, Card, Dialog, Flex, Heading, HStack, IconButton, Table, Text, VStack } from '@chakra-ui/react';
+import {
+  Button,
+  Card,
+  Dialog,
+  Flex,
+  Heading,
+  HStack,
+  IconButton,
+  Table,
+  Text,
+  VStack,
+} from '@chakra-ui/react';
+import dayjs from 'dayjs';
 import { Edit, Plus, Trash } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { DATETIME_FORMAT } from '../const';
 import { usePlanner } from '../hooks/usePlanner';
 import { AccountModel } from '../models/AccountModel';
 import { AccountEditor } from './AccountEditor';
-import dayjs from 'dayjs';
-import { DATETIME_FORMAT } from '../const';
 
-export function AccountManager () {
+export function AccountManager() {
   const { accounts, positions, accountChanges, addAccount, deleteAccount } = usePlanner();
   const [pendingDeleteAccountId, setPendingDeleteAccountId] = useState<string | null>(null);
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
@@ -104,7 +115,9 @@ export function AccountManager () {
                       position.status === 'closed' &&
                       position.pnl !== undefined
                   );
-                  const wins = accountPositions.filter((position) => (position.pnl || 0) > 0).length;
+                  const wins = accountPositions.filter(
+                    (position) => (position.pnl || 0) > 0
+                  ).length;
                   const total = accountPositions.length;
                   const winRate = total > 0 ? (wins / total) * 100 : 0;
                   console.log(`winRate: ${winRate} = ${wins} / ${total}`);
@@ -120,7 +133,9 @@ export function AccountManager () {
                   const sevenDayDelta = accountPositions.reduce((sum, position) => {
                     if (!position.closedAt || position.closedAt < sevenDayCutoff) return sum;
 
-                    console.log(`  Add position ${dayjs(position.closedAt).format(DATETIME_FORMAT)} with pnl ${position.pnl}`);
+                    console.log(
+                      `  Add position ${dayjs(position.closedAt).format(DATETIME_FORMAT)} with pnl ${position.pnl}`
+                    );
                     return sum + (position.pnl || 0);
                   }, 0);
                   console.log(`sevenDayDelta: ${sevenDayDelta}`);
@@ -134,12 +149,8 @@ export function AccountManager () {
 
                   return (
                     <Table.Row key={account.id}>
-                      <Table.Cell>
-                        {account.name}
-                      </Table.Cell>
-                      <Table.Cell textAlign="end">
-                        {account.initialBalance.toFixed(2)}
-                      </Table.Cell>
+                      <Table.Cell>{account.name}</Table.Cell>
+                      <Table.Cell textAlign="end">{account.initialBalance.toFixed(2)}</Table.Cell>
                       <Table.Cell
                         textAlign="end"
                         color={
@@ -148,15 +159,9 @@ export function AccountManager () {
                       >
                         {account.currentBalance.toFixed(2)}
                       </Table.Cell>
-                      <Table.Cell textAlign="end">
-                        {winRate.toFixed(1)}%
-                      </Table.Cell>
-                      <Table.Cell textAlign="end">
-                        {oneDayDelta.toFixed(2)}
-                      </Table.Cell>
-                      <Table.Cell textAlign="end">
-                        {sevenDayDelta.toFixed(2)}
-                      </Table.Cell>
+                      <Table.Cell textAlign="end">{winRate.toFixed(1)}%</Table.Cell>
+                      <Table.Cell textAlign="end">{oneDayDelta.toFixed(2)}</Table.Cell>
+                      <Table.Cell textAlign="end">{sevenDayDelta.toFixed(2)}</Table.Cell>
                       <Table.Cell textAlign="end">{manualTotals.wins.toFixed(2)}</Table.Cell>
                       <Table.Cell textAlign="end">{manualTotals.losses.toFixed(2)}</Table.Cell>
                       <Table.Cell textAlign="end">

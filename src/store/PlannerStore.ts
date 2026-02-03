@@ -1,5 +1,5 @@
-import { AccountModel } from '../models/AccountModel';
 import { AccountChangeModel } from '../models/AccountChangeModel';
+import { AccountModel } from '../models/AccountModel';
 import { Config } from '../models/ConfigModel';
 import { PositionModel } from '../models/PositionModel';
 import { SetupModel } from '../models/SetupModel';
@@ -96,12 +96,12 @@ export class PlannerStore {
   async loadFromDB() {
     const [storedAccounts, storedAccountChanges, storedSetups, storedPositions, storedConfigs] =
       await Promise.all([
-      db.getAllAccounts(),
-      db.getAllAccountChanges(),
-      db.getAllSetups(),
-      db.getAllPositions(),
-      db.getAllConfigs(),
-    ]);
+        db.getAllAccounts(),
+        db.getAllAccountChanges(),
+        db.getAllSetups(),
+        db.getAllPositions(),
+        db.getAllConfigs(),
+      ]);
 
     // Re-hydrate plain objects into Models including methods
     this.accounts = storedAccounts.map((d) => new AccountModel(d));

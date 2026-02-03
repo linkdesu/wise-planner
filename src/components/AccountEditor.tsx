@@ -7,8 +7,8 @@ import {
   HStack,
   IconButton,
   Input,
-  Popover,
   Pagination,
+  Popover,
   Select,
   Table,
   Text,
@@ -16,13 +16,13 @@ import {
   VStack,
   createListCollection,
 } from '@chakra-ui/react';
+import dayjs from 'dayjs';
 import { ChevronLeft, ChevronRight, Plus, Trash } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { DATETIME_FORMAT } from '../const';
 import { usePlanner } from '../hooks/usePlanner';
 import { AccountChangeModel } from '../models/AccountChangeModel';
 import { NumberInput, type NumberInputHandle } from './ui/NumberInput';
-import dayjs from 'dayjs';
-import { DATETIME_FORMAT } from '../const';
 
 const changeTypeCollection = createListCollection({
   items: [
@@ -39,7 +39,7 @@ type AccountEditorProps = {
   onClose: () => void;
 };
 
-export function AccountEditor ({ accountId, open, onClose }: AccountEditorProps) {
+export function AccountEditor({ accountId, open, onClose }: AccountEditorProps) {
   const {
     accounts,
     positions,
@@ -100,7 +100,11 @@ export function AccountEditor ({ accountId, open, onClose }: AccountEditorProps)
     const nextInitial = Number(editInitialBalance);
     const nextTaker = Number(editTakerFee);
     const nextMaker = Number(editMakerFee);
-    if (!Number.isFinite(nextInitial) || !Number.isFinite(nextTaker) || !Number.isFinite(nextMaker)) {
+    if (
+      !Number.isFinite(nextInitial) ||
+      !Number.isFinite(nextTaker) ||
+      !Number.isFinite(nextMaker)
+    ) {
       setError('Please enter valid numbers for account fields.');
       return;
     }
@@ -162,7 +166,12 @@ export function AccountEditor ({ accountId, open, onClose }: AccountEditorProps)
     <Dialog.Root open={open} onOpenChange={({ open: nextOpen }) => !nextOpen && onClose()}>
       <Dialog.Backdrop />
       <Dialog.Positioner>
-        <Dialog.Content bg="surface" color="fg" borderColor="border" minW={{ base: 'auto', md: '720px' }}>
+        <Dialog.Content
+          bg="surface"
+          color="fg"
+          borderColor="border"
+          minW={{ base: 'auto', md: '720px' }}
+        >
           <Dialog.Header>
             <Dialog.Title>Edit Account</Dialog.Title>
           </Dialog.Header>
@@ -211,7 +220,7 @@ export function AccountEditor ({ accountId, open, onClose }: AccountEditorProps)
                 <Card.Root bg="surface" borderColor="border">
                   <Card.Body>
                     <VStack gap={4} maxW="100%" w="100%">
-                      <Flex alignSelf={"flex-start"}>
+                      <Flex alignSelf={'flex-start'}>
                         <Text fontWeight="semibold">Account Changes</Text>
                       </Flex>
                       <VStack gap={3} align="flex-start" w="100%">
@@ -316,7 +325,11 @@ export function AccountEditor ({ accountId, open, onClose }: AccountEditorProps)
                                         </Popover.Trigger>
                                         {change.note ? (
                                           <Popover.Positioner>
-                                            <Popover.Content bg="surface" color="fg" borderColor="border">
+                                            <Popover.Content
+                                              bg="surface"
+                                              color="fg"
+                                              borderColor="border"
+                                            >
                                               <Popover.Arrow />
                                               <Popover.Body>
                                                 <Text whiteSpace="pre-wrap">{change.note}</Text>
@@ -326,7 +339,9 @@ export function AccountEditor ({ accountId, open, onClose }: AccountEditorProps)
                                         ) : null}
                                       </Popover.Root>
                                     </Table.Cell>
-                                    <Table.Cell textAlign="end">{change.amount.toFixed(2)}</Table.Cell>
+                                    <Table.Cell textAlign="end">
+                                      {change.amount.toFixed(2)}
+                                    </Table.Cell>
                                     <Table.Cell textAlign="end">
                                       {dayjs(change.createdAt).format(DATETIME_FORMAT)}
                                     </Table.Cell>
@@ -364,7 +379,11 @@ export function AccountEditor ({ accountId, open, onClose }: AccountEditorProps)
                             </Text>
                             <HStack>
                               <Pagination.PrevTrigger asChild>
-                                <IconButton variant="ghost" color="muted" aria-label="Previous page">
+                                <IconButton
+                                  variant="ghost"
+                                  color="muted"
+                                  aria-label="Previous page"
+                                >
                                   <ChevronLeft />
                                 </IconButton>
                               </Pagination.PrevTrigger>

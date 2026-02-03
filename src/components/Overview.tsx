@@ -23,7 +23,8 @@ export function Overview() {
     () => closedPositions.filter((p) => (p.pnl || 0) > 0),
     [closedPositions]
   );
-  const winRate = closedPositions.length > 0 ? (winPositions.length / closedPositions.length) * 100 : 0;
+  const winRate =
+    closedPositions.length > 0 ? (winPositions.length / closedPositions.length) * 100 : 0;
 
   return (
     <VStack gap={6} align="stretch">
@@ -78,15 +79,13 @@ export function Overview() {
                 <Stat.Label color="muted">Win Rate</Stat.Label>
                 <Stat.ValueText color="warning">{winRate.toFixed(1)}%</Stat.ValueText>
                 <Stat.HelpText color="muted">
-                  {winPositions.length} /{' '}
-                  {closedPositions.length} trades
+                  {winPositions.length} / {closedPositions.length} trades
                 </Stat.HelpText>
               </Stat.Root>
             </Card.Body>
           </Card.Root>
         </GridItem>
       </Grid>
-
     </VStack>
   );
 }

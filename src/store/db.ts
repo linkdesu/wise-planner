@@ -1,6 +1,6 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
-import { AccountModel } from '../models/AccountModel';
 import { AccountChangeModel } from '../models/AccountChangeModel';
+import { AccountModel } from '../models/AccountModel';
 import { Config } from '../models/ConfigModel';
 import { PositionModel } from '../models/PositionModel';
 import { SetupModel } from '../models/SetupModel';
@@ -189,7 +189,10 @@ export async function deleteConfig(key: string) {
 
 export async function clearAll() {
   const db = await initDB();
-  const tx = db.transaction(['accounts', 'accountChanges', 'setups', 'positions', 'configs'], 'readwrite');
+  const tx = db.transaction(
+    ['accounts', 'accountChanges', 'setups', 'positions', 'configs'],
+    'readwrite'
+  );
   await Promise.all([
     tx.objectStore('accounts').clear(),
     tx.objectStore('accountChanges').clear(),
@@ -208,7 +211,10 @@ export async function bulkSave(
   configs: Config[]
 ) {
   const db = await initDB();
-  const tx = db.transaction(['accounts', 'accountChanges', 'setups', 'positions', 'configs'], 'readwrite');
+  const tx = db.transaction(
+    ['accounts', 'accountChanges', 'setups', 'positions', 'configs'],
+    'readwrite'
+  );
 
   await tx.objectStore('accounts').clear();
   await tx.objectStore('accountChanges').clear();

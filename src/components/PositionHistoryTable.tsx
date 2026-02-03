@@ -191,7 +191,9 @@ export function PositionHistoryTable() {
               </Table.Header>
               <Table.Body>
                 {pagedHistory.map(({ position, accountName, setupName }) => {
-                  const marginEstimate = position.getMarginEstimate ? position.getMarginEstimate() : 0;
+                  const marginEstimate = position.getMarginEstimate
+                    ? position.getMarginEstimate()
+                    : 0;
                   const notionalCost = position.steps.reduce(
                     (sum, step) => sum + step.size * step.price,
                     0
@@ -203,7 +205,9 @@ export function PositionHistoryTable() {
                       </Table.Cell>
                       <Table.Cell>{accountName}</Table.Cell>
                       <Table.Cell>{setupName}</Table.Cell>
-                      <Table.Cell color={position.side === 'long' ? 'success' : 'danger'}>{position.side}</Table.Cell>
+                      <Table.Cell color={position.side === 'long' ? 'success' : 'danger'}>
+                        {position.side}
+                      </Table.Cell>
                       <Table.Cell fontWeight="bold" color="accentAlt">
                         {position.symbol}
                       </Table.Cell>
@@ -218,9 +222,7 @@ export function PositionHistoryTable() {
                         {notionalCost > 0 ? `$${notionalCost.toFixed(2)}` : '-'}
                       </Table.Cell>
                       <Table.Cell textAlign="end">
-                        {position.stopLossPrice > 0
-                          ? `$${position.stopLossPrice.toFixed(4)}`
-                          : '-'}
+                        {position.stopLossPrice > 0 ? `$${position.stopLossPrice.toFixed(4)}` : '-'}
                       </Table.Cell>
                       <Table.Cell textAlign="end">
                         {position.feeTotal ? `$${position.feeTotal.toFixed(4)}` : '-'}

@@ -109,12 +109,7 @@ export function PositionEditor({
           <Dialog.Header>
             <HStack justify="space-between">
               <Dialog.Title>Edit Position</Dialog.Title>
-              <IconButton
-                aria-label="Close"
-                size="sm"
-                variant="ghost"
-                onClick={onClose}
-              >
+              <IconButton aria-label="Close" size="sm" variant="ghost" onClick={onClose}>
                 <X size={14} />
               </IconButton>
             </HStack>
@@ -148,7 +143,10 @@ export function PositionEditor({
                                 p.side = e.checked ? 'short' : 'long';
                                 const setup = setups.find((s) => s.id === p.setupId);
                                 if (setup) {
-                                  p.recalculateRiskDriven(setup, accountBalance, { makerFee, takerFee });
+                                  p.recalculateRiskDriven(setup, accountBalance, {
+                                    makerFee,
+                                    takerFee,
+                                  });
                                 }
                               });
                             }}
@@ -173,7 +171,9 @@ export function PositionEditor({
                           size="sm"
                           width="240px"
                           collection={setupCollection}
-                          value={!isDeletedSetupReference && position.setupId ? [position.setupId] : []}
+                          value={
+                            !isDeletedSetupReference && position.setupId ? [position.setupId] : []
+                          }
                           onValueChange={(e) => handleSetupChange(e.value[0] || '')}
                         >
                           <Select.Control>
@@ -183,7 +183,12 @@ export function PositionEditor({
                             </Select.Trigger>
                           </Select.Control>
                           <Select.Positioner>
-                            <Select.Content bg="surface" color="fg" borderColor="border" boxShadow="lg">
+                            <Select.Content
+                              bg="surface"
+                              color="fg"
+                              borderColor="border"
+                              boxShadow="lg"
+                            >
                               {setupCollection.items.map((item) => (
                                 <Select.Item item={item} key={item.value}>
                                   <Select.ItemText>{item.label}</Select.ItemText>
@@ -226,7 +231,7 @@ export function PositionEditor({
                         Risk Amount ($)
                       </Field.Label>
                       <NumberInput
-                        inputProps={{color: 'fg'}}
+                        inputProps={{ color: 'fg' }}
                         key={`risk-${position.id}-${position.riskAmount}`}
                         value={position.riskAmount.toString()}
                         min={1}
@@ -237,7 +242,10 @@ export function PositionEditor({
                             p.riskAmount = next;
                             const setup = setups.find((s) => s.id === p.setupId);
                             if (setup) {
-                              p.recalculateRiskDriven(setup, accountBalance, { makerFee, takerFee });
+                              p.recalculateRiskDriven(setup, accountBalance, {
+                                makerFee,
+                                takerFee,
+                              });
                             }
                           });
                         }}
@@ -250,7 +258,7 @@ export function PositionEditor({
                         Stop Loss Price
                       </Field.Label>
                       <NumberInput
-                        inputProps={{color: 'fg'}}
+                        inputProps={{ color: 'fg' }}
                         key={`sl-${position.id}-${position.stopLossPrice}`}
                         value={position.stopLossPrice.toString()}
                         min={0}
@@ -261,7 +269,10 @@ export function PositionEditor({
                             p.stopLossPrice = next;
                             const setup = setups.find((s) => s.id === p.setupId);
                             if (setup) {
-                              p.recalculateRiskDriven(setup, accountBalance, { makerFee, takerFee });
+                              p.recalculateRiskDriven(setup, accountBalance, {
+                                makerFee,
+                                takerFee,
+                              });
                             }
                           });
                         }}
@@ -274,18 +285,23 @@ export function PositionEditor({
                         Leverage (x)
                       </Field.Label>
                       <NumberInput
-                        inputProps={{color: 'fg'}}
+                        inputProps={{ color: 'fg' }}
                         key={`lev-${position.id}-${position.leverage || 1}`}
                         value={(position.leverage || 1).toString()}
                         min={1}
                         onCommit={(raw) => {
                           const nextRaw = Number(raw);
-                          const next = Number.isFinite(nextRaw) ? Math.min(125, Math.max(1, nextRaw)) : 1;
+                          const next = Number.isFinite(nextRaw)
+                            ? Math.min(125, Math.max(1, nextRaw))
+                            : 1;
                           onUpdate((p) => {
                             p.leverage = next;
                             const setup = setups.find((s) => s.id === p.setupId);
                             if (setup) {
-                              p.recalculateRiskDriven(setup, accountBalance, { makerFee, takerFee });
+                              p.recalculateRiskDriven(setup, accountBalance, {
+                                makerFee,
+                                takerFee,
+                              });
                             }
                           });
                         }}
@@ -355,7 +371,13 @@ export function PositionEditor({
                     <Text fontSize="sm" fontWeight="bold" mb={2} color="accentAlt">
                       Resizing Steps (Calculated)
                     </Text>
-                    <Grid templateColumns="repeat(16, 1fr)" gap={1} mb={2} fontSize="xs" color="muted">
+                    <Grid
+                      templateColumns="repeat(16, 1fr)"
+                      gap={1}
+                      mb={2}
+                      fontSize="xs"
+                      color="muted"
+                    >
                       <GridItem colSpan={1}>#</GridItem>
                       <GridItem colSpan={3}>Price</GridItem>
                       <GridItem colSpan={2}>Size</GridItem>
@@ -378,7 +400,7 @@ export function PositionEditor({
                         </GridItem>
                         <GridItem colSpan={3}>
                           <NumberInput
-                            inputProps={{color: 'fg'}}
+                            inputProps={{ color: 'fg' }}
                             key={`step-${step.id}-${step.price}`}
                             size="sm"
                             w="90%"
@@ -392,7 +414,10 @@ export function PositionEditor({
                                 p.steps[idx].price = next;
                                 const setup = setups.find((s) => s.id === p.setupId);
                                 if (setup) {
-                                  p.recalculateRiskDriven(setup, accountBalance, { makerFee, takerFee });
+                                  p.recalculateRiskDriven(setup, accountBalance, {
+                                    makerFee,
+                                    takerFee,
+                                  });
                                 }
                               });
                             }}
@@ -404,14 +429,10 @@ export function PositionEditor({
                           </Text>
                         </GridItem>
                         <GridItem colSpan={3} color="accent">
-                          <Text fontSize="xs">
-                            ${step.cost.toFixed(4)}
-                          </Text>
+                          <Text fontSize="xs">${step.cost.toFixed(4)}</Text>
                         </GridItem>
                         <GridItem colSpan={2}>
-                          <Text fontSize="xs">
-                            {step.fee ? `$${step.fee.toFixed(4)}` : '-'}
-                          </Text>
+                          <Text fontSize="xs">{step.fee ? `$${step.fee.toFixed(4)}` : '-'}</Text>
                         </GridItem>
                         <GridItem colSpan={2}>
                           <Text fontSize="xs" color="danger">
@@ -428,7 +449,10 @@ export function PositionEditor({
                                 p.steps[idx].orderType = (e.value[0] || 'taker') as OrderType;
                                 const setup = setups.find((s) => s.id === p.setupId);
                                 if (setup) {
-                                  p.recalculateRiskDriven(setup, accountBalance, { makerFee, takerFee });
+                                  p.recalculateRiskDriven(setup, accountBalance, {
+                                    makerFee,
+                                    takerFee,
+                                  });
                                 }
                               })
                             }
@@ -440,7 +464,12 @@ export function PositionEditor({
                               </Select.Trigger>
                             </Select.Control>
                             <Select.Positioner>
-                              <Select.Content bg="surface" color="fg" borderColor="border" boxShadow="lg">
+                              <Select.Content
+                                bg="surface"
+                                color="fg"
+                                borderColor="border"
+                                boxShadow="lg"
+                              >
                                 {orderTypeCollection.items.map((item) => (
                                   <Select.Item item={item} key={item.value}>
                                     <Select.ItemText>{item.label}</Select.ItemText>
@@ -463,7 +492,10 @@ export function PositionEditor({
 
                                 const setup = setups.find((s) => s.id === p.setupId);
                                 if (setup) {
-                                  p.recalculateRiskDriven(setup, accountBalance, { makerFee, takerFee });
+                                  p.recalculateRiskDriven(setup, accountBalance, {
+                                    makerFee,
+                                    takerFee,
+                                  });
                                 }
                               })
                             }

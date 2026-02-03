@@ -21,7 +21,7 @@ import { PositionModel } from '../models/PositionModel';
 import { PositionEditor } from './PositionEditor';
 import { PositionHistoryTable } from './PositionHistoryTable';
 
-export function PositionWorkspace () {
+export function PositionWorkspace() {
   const { accounts, setups, positions, addPosition, updatePosition, deletePosition } = usePlanner();
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   const [activeTab, setActiveTab] = useState('active');
@@ -141,8 +141,12 @@ export function PositionWorkspace () {
 
         <Tabs.Root value={activeTab} onValueChange={(e) => setActiveTab(e.value)}>
           <Tabs.List>
-            <Tabs.Trigger value="active" _selected={{ color: 'accentAlt' }}>Active</Tabs.Trigger>
-            <Tabs.Trigger value="history" _selected={{ color: 'accentAlt' }}>History</Tabs.Trigger>
+            <Tabs.Trigger value="active" _selected={{ color: 'accentAlt' }}>
+              Active
+            </Tabs.Trigger>
+            <Tabs.Trigger value="history" _selected={{ color: 'accentAlt' }}>
+              History
+            </Tabs.Trigger>
           </Tabs.List>
           <Tabs.Content value="active">
             <Card.Root bg="surface" color="fg" borderColor="border">
@@ -199,7 +203,9 @@ export function PositionWorkspace () {
                               <Table.Cell fontWeight="bold" color="accentAlt">
                                 {position.symbol}
                               </Table.Cell>
-                              <Table.Cell color={position.side === 'long' ? 'success' : 'danger'}>{position.side}</Table.Cell>
+                              <Table.Cell color={position.side === 'long' ? 'success' : 'danger'}>
+                                {position.side}
+                              </Table.Cell>
                               <Table.Cell>
                                 <Badge bg={position.status === 'planning' ? 'info' : 'success'}>
                                   {position.status}
@@ -300,12 +306,8 @@ export function PositionWorkspace () {
                 This will delete position
                 {pendingDeletePosition ? ` "${pendingDeletePosition.symbol}"` : ''}.
               </Text>
-              <Text color="muted">
-                Account: {pendingDeleteAccount?.name || 'Unknown'}
-              </Text>
-              <Text color="muted">
-                Setup: {pendingDeleteSetup?.name || 'Unknown'}
-              </Text>
+              <Text color="muted">Account: {pendingDeleteAccount?.name || 'Unknown'}</Text>
+              <Text color="muted">Setup: {pendingDeleteSetup?.name || 'Unknown'}</Text>
             </VStack>
           </Dialog.Body>
           <Dialog.Footer>
