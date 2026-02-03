@@ -102,6 +102,25 @@ export function SetupManager() {
           </Button>
         </Flex>
 
+        <Box
+          p={4}
+          bg="surface"
+          borderRadius="md"
+          fontSize="sm"
+          color="muted"
+          borderColor="border"
+          borderWidth="1px"
+        >
+          <Text fontWeight="bold" mb={2} color="accentAlt">
+            Tip: Understanding Cost Ratios
+          </Text>
+          <Text>Ratios determine how your total notional cost is distributed across entries.</Text>
+          <Text>
+            Example: <b>1 : 1 : 2</b> means the first entry uses 1/4 of cost, second uses 1/4, and
+            third uses 2/4 (50%).
+          </Text>
+        </Box>
+
         <Card.Root bg="surface" color="fg" borderColor="border">
           <Card.Body>
             <Table.Root variant="outline">
@@ -199,25 +218,6 @@ export function SetupManager() {
             </Table.Root>
           </Card.Body>
         </Card.Root>
-
-        <Box
-          p={4}
-          bg="surface"
-          borderRadius="md"
-          fontSize="sm"
-          color="muted"
-          borderColor="border"
-          borderWidth="1px"
-        >
-          <Text fontWeight="bold" mb={2} color="accentAlt">
-            Tip: Understanding Cost Ratios
-          </Text>
-          <Text>Ratios determine how your total notional cost is distributed across entries.</Text>
-          <Text>
-            Example: <b>1 : 1 : 2</b> means the first entry uses 1/4 of cost, second uses 1/4, and
-            third uses 2/4 (50%).
-          </Text>
-        </Box>
       </VStack>
 
       <Dialog.Backdrop />
