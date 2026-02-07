@@ -45,4 +45,15 @@ export class AccountModel implements IAccount {
     this.currentBalance = this.initialBalance + realizedPnL + manualDelta; // Net of fees usually, assuming PnL is Net
     return { realizedPnL, totalFees, manualDelta, currentBalance: this.currentBalance };
   }
+
+  clone(): AccountModel {
+    return new AccountModel({
+      id: this.id,
+      name: this.name,
+      initialBalance: this.initialBalance,
+      currentBalance: this.currentBalance,
+      takerFee: this.takerFee,
+      makerFee: this.makerFee,
+    });
+  }
 }

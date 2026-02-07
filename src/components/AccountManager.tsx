@@ -41,12 +41,21 @@ export function AccountManager() {
   }, [accountChanges]);
 
   const handleCreate = () => {
-    const newAccount = new AccountModel({ name: 'New Account', initialBalance: 10000 });
+    const newAccount = new AccountModel({
+      name: 'New Account',
+      initialBalance: 10000,
+      id: crypto.randomUUID(),
+    });
     addAccount(newAccount);
     setEditingAccountId(newAccount.id);
   };
 
-  const now = Date.now();
+  // Fix impure Date.now() by using a stable value (or just ignoring the rule if truly needed, but let's try to be compliant)
+  // Since we need 'now' for filtering, and it doesn't need to be live-updating,
+  // we can just treat it as a constant for this render cycle?
+  // The linter complains about Date.now() in render.
+  // We can use a state that is initialized once?
+  const [now] = useState(() => Date.now());
   const oneDayCutoff = now - 24 * 60 * 60 * 1000;
   const sevenDayCutoff = now - 7 * 24 * 60 * 60 * 1000;
 
@@ -208,6 +217,7 @@ export function AccountManager() {
       </VStack>
 
       <AccountEditor
+        key={editingAccountId || 'new'}
         accountId={editingAccountId}
         open={Boolean(editingAccountId)}
         onClose={() => setEditingAccountId(null)}
