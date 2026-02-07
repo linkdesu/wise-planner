@@ -180,10 +180,10 @@ export function PositionWorkspace() {
                           const marginEstimate = position.getMarginEstimate
                             ? position.getMarginEstimate()
                             : 0;
-                          const notionalCost = position.steps.reduce(
-                            (sum, step) => sum + step.size * step.price,
-                            0
-                          );
+                          const notionalCost = position.steps.reduce((sum, step) => {
+                            if (step.isClosed) return sum;
+                            return sum + step.size * step.price;
+                          }, 0);
                           const accountName = accountMap.get(position.accountId)?.name || 'Unknown';
                           const setupName =
                             setupMap.get(position.setupId)?.name ||
@@ -195,6 +195,12 @@ export function PositionWorkspace() {
                             return sum;
                           }, 0);
                           const totalSteps = position.steps.length;
+
+                          const extraRisk = position.extraRisk || 0;
+                          const riskDisplay =
+                            extraRisk > 0
+                              ? `$${position.riskAmount.toFixed(2)} + $${extraRisk.toFixed(2)}`
+                              : `$${position.riskAmount.toFixed(2)}`;
 
                           return (
                             <Table.Row key={position.id}>
@@ -218,7 +224,16 @@ export function PositionWorkspace() {
                                 {position.currentBE?.toFixed(2) || '-'}
                               </Table.Cell>
                               <Table.Cell textAlign="end">
-                                ${position.riskAmount.toFixed(2)}
+                                {extraRisk > 0 ? (
+                                  <>
+                                    ${position.riskAmount.toFixed(2)}{' '}
+                                    <Text as="span" color="danger">
+                                      + ${extraRisk.toFixed(2)}
+                                    </Text>
+                                  </>
+                                ) : (
+                                  riskDisplay
+                                )}
                               </Table.Cell>
                               <Table.Cell textAlign="end">
                                 {position.leverage ? `${position.leverage}x` : '-'}

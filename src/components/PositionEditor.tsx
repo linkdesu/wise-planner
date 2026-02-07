@@ -101,8 +101,14 @@ export function PositionEditor({
   const isOpened = position.status === 'opened';
 
   const marginEst = position.getMarginEstimate ? position.getMarginEstimate() : 0;
-  const totalSize = position.steps.reduce((sum, step) => sum + step.size, 0);
-  const totalCost = position.steps.reduce((sum, step) => sum + step.size * step.price, 0);
+  const totalSize = position.steps.reduce((sum, step) => {
+    if (step.isClosed) return sum;
+    return sum + step.size;
+  }, 0);
+  const totalCost = position.steps.reduce((sum, step) => {
+    if (step.isClosed) return sum;
+    return sum + step.size * step.price;
+  }, 0);
   const totalFees = position.feeTotal || 0;
   const marginUsagePct = accountBalance > 0 ? (marginEst / accountBalance) * 100 : 0;
   const canClose = position.pnl !== undefined && !Number.isNaN(position.pnl);
@@ -122,6 +128,7 @@ export function PositionEditor({
           ? 'Stop loss must be above the highest step price for short.'
           : null;
   const riskErrorMessage = riskError ?? computedRiskError;
+  const extraRisk = position.extraRisk || 0;
   const leverageErrorMessage = leverageError ?? computedLeverageError;
   const stopLossErrorMessage = stopLossError ?? computedStopLossError;
 
@@ -250,38 +257,45 @@ export function PositionEditor({
                     <Separator my={2} borderColor="borderSubtle" />
                   </GridItem>
 
-                  <GridItem colSpan={2}>
+                  <GridItem colSpan={5}>
                     <Field.Root invalid={Boolean(riskErrorMessage)}>
                       <Field.Label fontSize="xs" color="muted">
                         Risk Amount ($)
                       </Field.Label>
-                      <NumberInput
-                        inputProps={{
-                          color: riskErrorMessage ? 'danger' : 'fg',
-                          'aria-invalid': Boolean(riskErrorMessage),
-                        }}
-                        key={`risk-${position.id}-${position.riskAmount}`}
-                        value={position.riskAmount.toString()}
-                        min={1}
-                        onCommit={(raw) => {
-                          const next = Number(raw);
-                          if (!Number.isFinite(next) || next <= 0) {
-                            setRiskError('Risk amount must be greater than 0.');
-                            return;
-                          }
-                          setRiskError(null);
-                          onUpdate((p) => {
-                            p.riskAmount = next;
-                            const setup = setups.find((s) => s.id === p.setupId);
-                            if (setup) {
-                              p.recalculateRiskDriven(setup, accountBalance, {
-                                makerFee,
-                                takerFee,
-                              });
+                      <HStack align="center">
+                        <NumberInput
+                          inputProps={{
+                            color: riskErrorMessage ? 'danger' : 'fg',
+                            'aria-invalid': Boolean(riskErrorMessage),
+                          }}
+                          key={`risk-${position.id}-${position.riskAmount}`}
+                          value={position.riskAmount.toString()}
+                          min={1}
+                          onCommit={(raw) => {
+                            const next = Number(raw);
+                            if (!Number.isFinite(next) || next <= 0) {
+                              setRiskError('Risk amount must be greater than 0.');
+                              return;
                             }
-                          });
-                        }}
-                      />
+                            setRiskError(null);
+                            onUpdate((p) => {
+                              p.riskAmount = next;
+                              const setup = setups.find((s) => s.id === p.setupId);
+                              if (setup) {
+                                p.recalculateRiskDriven(setup, accountBalance, {
+                                  makerFee,
+                                  takerFee,
+                                });
+                              }
+                            });
+                          }}
+                        />
+                        {extraRisk > 0 && (
+                          <Text fontSize="xs" color="danger">
+                            + ${extraRisk.toFixed(2) + '(extra)'}
+                          </Text>
+                        )}
+                      </HStack>
                       {riskErrorMessage && (
                         <Text fontSize="xs" color="danger">
                           {riskErrorMessage}
@@ -446,7 +460,7 @@ export function PositionEditor({
                       Resizing Steps (Calculated)
                     </Text>
                     <Grid
-                      templateColumns="repeat(16, 1fr)"
+                      templateColumns="repeat(17, 1fr)"
                       gap={1}
                       mb={2}
                       fontSize="xs"
@@ -460,11 +474,12 @@ export function PositionEditor({
                       <GridItem colSpan={2}>Break Even</GridItem>
                       <GridItem colSpan={2}>Order</GridItem>
                       <GridItem colSpan={1}>Fill</GridItem>
+                      <GridItem colSpan={1}>Close</GridItem>
                     </Grid>
                     {position.steps.map((step, idx) => (
                       <Grid
                         key={step.id}
-                        templateColumns="repeat(16, 1fr)"
+                        templateColumns="repeat(17, 1fr)"
                         gap={1}
                         mb={2}
                         alignItems="center"
@@ -480,7 +495,7 @@ export function PositionEditor({
                             w="90%"
                             min={0}
                             value={step.price.toString()}
-                            disabled={step.isFilled}
+                            disabled={step.isClosed}
                             onCommit={(raw) => {
                               const next = Number(raw);
                               if (!Number.isFinite(next)) return;
@@ -498,9 +513,34 @@ export function PositionEditor({
                           />
                         </GridItem>
                         <GridItem colSpan={2}>
-                          <Text fontSize="sm" fontWeight="bold">
-                            {step.size.toFixed(6)}
-                          </Text>
+                          {step.isFilled && !step.isClosed ? (
+                            <NumberInput
+                              inputProps={{ color: 'fg' }}
+                              key={`step-size-${step.id}-${step.size}`}
+                              size="sm"
+                              w="90%"
+                              min={0}
+                              value={step.size.toString()}
+                              onCommit={(raw) => {
+                                const next = Number(raw);
+                                if (!Number.isFinite(next)) return;
+                                onUpdate((p) => {
+                                  p.steps[idx].size = next;
+                                  const setup = setups.find((s) => s.id === p.setupId);
+                                  if (setup) {
+                                    p.recalculateRiskDriven(setup, accountBalance, {
+                                      makerFee,
+                                      takerFee,
+                                    });
+                                  }
+                                });
+                              }}
+                            />
+                          ) : (
+                            <Text fontSize="sm" fontWeight="bold">
+                              {step.size.toFixed(6)}
+                            </Text>
+                          )}
                         </GridItem>
                         <GridItem colSpan={3} color="accent">
                           <Text fontSize="xs">${step.cost.toFixed(4)}</Text>
@@ -557,9 +597,14 @@ export function PositionEditor({
                           <Checkbox.Root
                             checked={step.isFilled}
                             colorPalette="green"
+                            disabled={step.isClosed}
                             onCheckedChange={(e) =>
                               onUpdate((p) => {
+                                if (p.steps[idx].isClosed) return;
                                 p.steps[idx].isFilled = !!e.checked;
+                                if (!e.checked) {
+                                  p.steps[idx].isClosed = false;
+                                }
                                 if (e.checked && p.status === 'planning') {
                                   p.status = 'opened';
                                 }
@@ -577,6 +622,36 @@ export function PositionEditor({
                             <Checkbox.HiddenInput />
                             <Checkbox.Control />
                           </Checkbox.Root>
+                        </GridItem>
+                        <GridItem colSpan={1}>
+                          {step.isClosed ? (
+                            <Text fontSize="xs" color="muted">
+                              Closed
+                            </Text>
+                          ) : (
+                            <IconButton
+                              aria-label="Close step"
+                              size="xs"
+                              variant="ghost"
+                              disabled={!step.isFilled}
+                              onClick={() =>
+                                onUpdate((p) => {
+                                  const target = p.steps[idx];
+                                  if (!target.isFilled || target.isClosed) return;
+                                  target.isClosed = true;
+                                  const setup = setups.find((s) => s.id === p.setupId);
+                                  if (setup) {
+                                    p.recalculateRiskDriven(setup, accountBalance, {
+                                      makerFee,
+                                      takerFee,
+                                    });
+                                  }
+                                })
+                              }
+                            >
+                              <X size={12} />
+                            </IconButton>
+                          )}
                         </GridItem>
                       </Grid>
                     ))}

@@ -11,6 +11,7 @@ export interface IResizingStep {
   orderType: OrderType;
   fee: number;
   isFilled: boolean;
+  isClosed: boolean;
   predictedBE?: number;
 }
 
@@ -29,6 +30,7 @@ export interface IPosition {
   feeTotal?: number;
   currentBE?: number;
   predictedBE?: number;
+  extraRisk?: number;
   createdAt: number;
   closedAt?: number;
 }

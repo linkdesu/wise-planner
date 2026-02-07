@@ -156,4 +156,44 @@ describe('PositionModel sizing', () => {
     expect(position.steps[1].size).not.toBeCloseTo(priorUnfilledSize, 6);
     expect(calcTotalRisk(position)).toBeLessThanOrEqual(position.riskAmount);
   });
+
+  it('should redistribute closed step size to remaining unfilled steps', () => {
+    const setup = new SetupModel({ resizingTimes: 2, resizingRatios: [1, 1] });
+    const position = new PositionModel({
+      side: 'long',
+      riskAmount: 100,
+      stopLossPrice: 95,
+    });
+    position.applySetup(setup);
+    position.steps[0].price = 120;
+    position.steps[1].price = 100;
+
+    position.recalculateRiskDriven(setup, 10000);
+    const priorUnfilledSize = position.steps[1].size;
+
+    position.steps[0].isFilled = true;
+    position.steps[0].size = 1;
+    position.steps[0].isClosed = true;
+    position.recalculateRiskDriven(setup, 10000);
+
+    expect(position.steps[1].size).toBeGreaterThan(priorUnfilledSize);
+    expect(position.steps[1].size).toBeGreaterThan(position.steps[0].size);
+  });
+
+  it('should compute extra risk when filled risk exceeds planned risk', () => {
+    const setup = new SetupModel({ resizingTimes: 1, resizingRatios: [1] });
+    const position = new PositionModel({
+      side: 'long',
+      riskAmount: 100,
+      stopLossPrice: 90,
+    });
+    position.applySetup(setup);
+    position.steps[0].price = 100;
+    position.steps[0].size = 20;
+    position.steps[0].isFilled = true;
+
+    position.recalculateRiskDriven(setup, 10000);
+
+    expect(position.extraRisk).toBeCloseTo(100, 6);
+  });
 });

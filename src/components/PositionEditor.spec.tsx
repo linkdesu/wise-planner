@@ -254,4 +254,15 @@ describe('PositionEditor', () => {
     const enabledCloseButton = refreshedCloseButtons.find((btn) => !btn.hasAttribute('disabled'));
     expect(enabledCloseButton).toBeDefined();
   });
+
+  it('should show extra risk and allow editing filled step size', () => {
+    position.steps[0].isFilled = true;
+    position.steps[0].size = 5;
+    position.recalculateRiskDriven(setup, 10000);
+
+    renderEditor();
+
+    expect(screen.getByText(/extra/i)).toBeInTheDocument();
+    expect(screen.getByDisplayValue('5')).toBeInTheDocument();
+  });
 });

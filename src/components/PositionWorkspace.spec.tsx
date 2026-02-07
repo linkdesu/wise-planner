@@ -282,4 +282,18 @@ describe('PositionWorkspace', () => {
 
     expect(screen.getByRole('button', { name: /close position/i })).not.toBeDisabled();
   });
+
+  it('should display extra risk in the active positions table', () => {
+    const position = plannerState.positions[0];
+    const setup = plannerState.setups[0];
+    const accountBalance = plannerState.accounts[0].currentBalance;
+    position.steps[0].isFilled = true;
+    position.steps[0].size = 5;
+    position.recalculateRiskDriven(setup, accountBalance);
+    plannerState.updatePosition(position);
+
+    renderWorkspace();
+
+    expect(screen.getByText('+ $25.00')).toBeInTheDocument();
+  });
 });
