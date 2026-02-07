@@ -26,6 +26,7 @@ export interface IPosition {
   leverage: number;
   riskAmount: number; // Planned risk amount
   steps: IResizingStep[];
+  chaseSteps: IResizingStep[];
   pnl?: number;
   feeTotal?: number;
   currentBE?: number;

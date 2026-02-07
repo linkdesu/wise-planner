@@ -10,13 +10,14 @@ import {
   HStack,
   IconButton,
   Input,
+  List,
   Select,
   Separator,
   Switch,
   Text,
   createListCollection,
 } from '@chakra-ui/react';
-import { Trash, X } from 'lucide-react';
+import { Plus, Trash, X } from 'lucide-react';
 import { useState } from 'react';
 import { PositionModel } from '../models/PositionModel';
 import { SetupModel } from '../models/SetupModel';
@@ -95,24 +96,45 @@ export function PositionEditor({
     }
   };
 
+  const handleAddChaseStep = () => {
+    onUpdate((p) => {
+      p.chaseSteps.push({
+        id: crypto.randomUUID(),
+        price: 0,
+        size: 0,
+        cost: 0,
+        orderType: 'taker',
+        fee: 0,
+        isFilled: false,
+        isClosed: false,
+        predictedBE: 0,
+      });
+      const setup = setups.find((s) => s.id === p.setupId);
+      if (setup) {
+        p.recalculateRiskDriven(setup, accountBalance, { makerFee, takerFee });
+      }
+    });
+  };
+
   const deletedSetup = position.setupId ? allSetupsMap.get(position.setupId) : undefined;
   const isDeletedSetupReference = Boolean(deletedSetup?.isDeleted);
 
   const isOpened = position.status === 'opened';
 
   const marginEst = position.getMarginEstimate ? position.getMarginEstimate() : 0;
-  const totalSize = position.steps.reduce((sum, step) => {
+  const allSteps = [...position.steps, ...position.chaseSteps];
+  const finalSize = allSteps.reduce((sum, step) => {
     if (step.isClosed) return sum;
     return sum + step.size;
   }, 0);
-  const totalCost = position.steps.reduce((sum, step) => {
+  const totalCost = allSteps.reduce((sum, step) => {
     if (step.isClosed) return sum;
     return sum + step.size * step.price;
   }, 0);
   const totalFees = position.feeTotal || 0;
   const marginUsagePct = accountBalance > 0 ? (marginEst / accountBalance) * 100 : 0;
   const canClose = position.pnl !== undefined && !Number.isNaN(position.pnl);
-  const stepPrices = position.steps.map((step) => step.price).filter((price) => price > 0);
+  const stepPrices = allSteps.map((step) => step.price).filter((price) => price > 0);
   const minStepPrice = stepPrices.length > 0 ? Math.min(...stepPrices) : null;
   const maxStepPrice = stepPrices.length > 0 ? Math.max(...stepPrices) : null;
   const computedRiskError = position.riskAmount <= 0 ? 'Risk amount must be greater than 0.' : null;
@@ -437,10 +459,10 @@ export function PositionEditor({
                   <GridItem colSpan={2}>
                     <Field.Root>
                       <Field.Label fontSize="xs" color="muted">
-                        Total Size (Base)
+                        Final Size (Base)
                       </Field.Label>
                       <Text fontSize="md" fontWeight="bold">
-                        {totalSize > 0 ? totalSize.toFixed(4) : '-'}
+                        {finalSize > 0 ? finalSize.toFixed(4) : '-'}
                       </Text>
                     </Field.Root>
                   </GridItem>
@@ -457,7 +479,11 @@ export function PositionEditor({
 
                   <GridItem colSpan={12}>
                     <Text fontSize="sm" fontWeight="bold" mb={2} color="accentAlt">
-                      Resizing Steps (Calculated)
+                      Planned Steps (Auto-calculated)
+                    </Text>
+                    <Text fontSize="xs" mb={2} color="muted">
+                      After a step is filled, you should update its price and size manually to
+                      reflect the actual trading.
                     </Text>
                     <Grid
                       templateColumns="repeat(17, 1fr)"
@@ -655,6 +681,253 @@ export function PositionEditor({
                         </GridItem>
                       </Grid>
                     ))}
+                  </GridItem>
+
+                  <GridItem colSpan={12}>
+                    <Separator my={3} borderColor="borderSubtle" />
+                    <HStack justify="space-between" mb={2}>
+                      <Text fontSize="sm" fontWeight="bold" color="accentAlt">
+                        Chase Steps (Manual)
+                      </Text>
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        color="success"
+                        onClick={handleAddChaseStep}
+                      >
+                        <Plus size={12} /> New Step
+                      </Button>
+                    </HStack>
+                    <List.Root fontSize="xs" mb={2} color="muted">
+                      <List.Item>Chasing steps will also consuming your risk budget.</List.Item>
+                      <List.Item>You could release your risk budget by closing them.</List.Item>
+                    </List.Root>
+                    <Grid
+                      templateColumns="repeat(18, 1fr)"
+                      gap={1}
+                      mb={2}
+                      fontSize="xs"
+                      color="muted"
+                    >
+                      <GridItem colSpan={1}>#</GridItem>
+                      <GridItem colSpan={3}>Price</GridItem>
+                      <GridItem colSpan={2}>Size</GridItem>
+                      <GridItem colSpan={3}>Est. Cost</GridItem>
+                      <GridItem colSpan={2}>Fee</GridItem>
+                      <GridItem colSpan={2}>Break Even</GridItem>
+                      <GridItem colSpan={2}>Order</GridItem>
+                      <GridItem colSpan={1}>Fill</GridItem>
+                      <GridItem colSpan={1}>Close</GridItem>
+                      <GridItem colSpan={1}>Remove</GridItem>
+                    </Grid>
+                    {position.chaseSteps.length === 0 ? (
+                      <Text fontSize="xs" color="muted">
+                        No chase steps yet.
+                      </Text>
+                    ) : (
+                      position.chaseSteps.map((step, idx) => (
+                        <Grid
+                          key={step.id}
+                          templateColumns="repeat(18, 1fr)"
+                          gap={1}
+                          mb={2}
+                          alignItems="center"
+                        >
+                          <GridItem colSpan={1} fontSize="sm">
+                            {idx + 1}
+                          </GridItem>
+                          <GridItem colSpan={3}>
+                            <NumberInput
+                              inputProps={{
+                                color: 'fg',
+                                'aria-label': `Chase Step ${idx + 1} Price`,
+                              }}
+                              key={`chase-${step.id}`}
+                              size="sm"
+                              w="90%"
+                              min={0}
+                              value={step.price.toString()}
+                              disabled={step.isClosed}
+                              onCommit={(raw) => {
+                                const next = Number(raw);
+                                if (!Number.isFinite(next)) return;
+                                onUpdate((p) => {
+                                  p.chaseSteps[idx].price = next;
+                                  const setup = setups.find((s) => s.id === p.setupId);
+                                  if (setup) {
+                                    p.recalculateRiskDriven(setup, accountBalance, {
+                                      makerFee,
+                                      takerFee,
+                                    });
+                                  }
+                                });
+                              }}
+                            />
+                          </GridItem>
+                          <GridItem colSpan={2}>
+                            <NumberInput
+                              inputProps={{
+                                color: 'fg',
+                                'aria-label': `Chase Step ${idx + 1} Size`,
+                              }}
+                              key={`chase-size-${step.id}`}
+                              size="sm"
+                              w="90%"
+                              min={0}
+                              value={step.size.toString()}
+                              disabled={step.isClosed}
+                              onCommit={(raw) => {
+                                const next = Number(raw);
+                                if (!Number.isFinite(next)) return;
+                                onUpdate((p) => {
+                                  p.chaseSteps[idx].size = next;
+                                  const setup = setups.find((s) => s.id === p.setupId);
+                                  if (setup) {
+                                    p.recalculateRiskDriven(setup, accountBalance, {
+                                      makerFee,
+                                      takerFee,
+                                    });
+                                  }
+                                });
+                              }}
+                            />
+                          </GridItem>
+                          <GridItem colSpan={3} color="accent">
+                            <Text fontSize="xs">${step.cost.toFixed(4)}</Text>
+                          </GridItem>
+                          <GridItem colSpan={2}>
+                            <Text fontSize="xs">{step.fee ? `$${step.fee.toFixed(4)}` : '-'}</Text>
+                          </GridItem>
+                          <GridItem colSpan={2}>
+                            <Text fontSize="xs" color="danger">
+                              {step.predictedBE?.toFixed(4) || '-'}
+                            </Text>
+                          </GridItem>
+                          <GridItem colSpan={2}>
+                            <Select.Root
+                              size="xs"
+                              collection={orderTypeCollection}
+                              value={[step.orderType]}
+                              onValueChange={(e) =>
+                                onUpdate((p) => {
+                                  p.chaseSteps[idx].orderType = (e.value[0] ||
+                                    'taker') as OrderType;
+                                  const setup = setups.find((s) => s.id === p.setupId);
+                                  if (setup) {
+                                    p.recalculateRiskDriven(setup, accountBalance, {
+                                      makerFee,
+                                      takerFee,
+                                    });
+                                  }
+                                })
+                              }
+                            >
+                              <Select.Control>
+                                <Select.Trigger>
+                                  <Select.ValueText />
+                                  <Select.Indicator />
+                                </Select.Trigger>
+                              </Select.Control>
+                              <Select.Positioner>
+                                <Select.Content
+                                  bg="surface"
+                                  color="fg"
+                                  borderColor="border"
+                                  boxShadow="lg"
+                                >
+                                  {orderTypeCollection.items.map((item) => (
+                                    <Select.Item item={item} key={item.value}>
+                                      <Select.ItemText>{item.label}</Select.ItemText>
+                                    </Select.Item>
+                                  ))}
+                                </Select.Content>
+                              </Select.Positioner>
+                            </Select.Root>
+                          </GridItem>
+                          <GridItem colSpan={1}>
+                            <Checkbox.Root
+                              checked={step.isFilled}
+                              colorPalette="green"
+                              disabled={step.isClosed}
+                              onCheckedChange={(e) =>
+                                onUpdate((p) => {
+                                  if (p.chaseSteps[idx].isClosed) return;
+                                  p.chaseSteps[idx].isFilled = !!e.checked;
+                                  if (!e.checked) {
+                                    p.chaseSteps[idx].isClosed = false;
+                                  }
+                                  if (e.checked && p.status === 'planning') {
+                                    p.status = 'opened';
+                                  }
+
+                                  const setup = setups.find((s) => s.id === p.setupId);
+                                  if (setup) {
+                                    p.recalculateRiskDriven(setup, accountBalance, {
+                                      makerFee,
+                                      takerFee,
+                                    });
+                                  }
+                                })
+                              }
+                            >
+                              <Checkbox.HiddenInput />
+                              <Checkbox.Control />
+                            </Checkbox.Root>
+                          </GridItem>
+                          <GridItem colSpan={1}>
+                            {step.isClosed ? (
+                              <Text fontSize="xs" color="muted">
+                                Closed
+                              </Text>
+                            ) : (
+                              <IconButton
+                                aria-label="Close chase step"
+                                size="xs"
+                                variant="ghost"
+                                disabled={!step.isFilled}
+                                onClick={() =>
+                                  onUpdate((p) => {
+                                    const target = p.chaseSteps[idx];
+                                    if (!target.isFilled || target.isClosed) return;
+                                    target.isClosed = true;
+                                    const setup = setups.find((s) => s.id === p.setupId);
+                                    if (setup) {
+                                      p.recalculateRiskDriven(setup, accountBalance, {
+                                        makerFee,
+                                        takerFee,
+                                      });
+                                    }
+                                  })
+                                }
+                              >
+                                <X size={12} />
+                              </IconButton>
+                            )}
+                          </GridItem>
+                          <GridItem colSpan={1}>
+                            <IconButton
+                              aria-label="Remove chase step"
+                              size="xs"
+                              variant="ghost"
+                              onClick={() =>
+                                onUpdate((p) => {
+                                  p.chaseSteps.splice(idx, 1);
+                                  const setup = setups.find((s) => s.id === p.setupId);
+                                  if (setup) {
+                                    p.recalculateRiskDriven(setup, accountBalance, {
+                                      makerFee,
+                                      takerFee,
+                                    });
+                                  }
+                                })
+                              }
+                            >
+                              <Trash size={12} />
+                            </IconButton>
+                          </GridItem>
+                        </Grid>
+                      ))
+                    )}
                   </GridItem>
 
                   <GridItem colSpan={12}>

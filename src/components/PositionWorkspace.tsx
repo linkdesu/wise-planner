@@ -180,7 +180,8 @@ export function PositionWorkspace() {
                           const marginEstimate = position.getMarginEstimate
                             ? position.getMarginEstimate()
                             : 0;
-                          const notionalCost = position.steps.reduce((sum, step) => {
+                          const allSteps = [...position.steps, ...position.chaseSteps];
+                          const notionalCost = allSteps.reduce((sum, step) => {
                             if (step.isClosed) return sum;
                             return sum + step.size * step.price;
                           }, 0);
@@ -188,13 +189,13 @@ export function PositionWorkspace() {
                           const setupName =
                             setupMap.get(position.setupId)?.name ||
                             (position.setupId ? 'Unknown' : 'Manual');
-                          const filledSteps = position.steps.reduce((sum, step) => {
+                          const filledSteps = allSteps.reduce((sum, step) => {
                             if (step.isFilled) {
                               return sum + 1;
                             }
                             return sum;
                           }, 0);
-                          const totalSteps = position.steps.length;
+                          const totalSteps = allSteps.length;
 
                           const extraRisk = position.extraRisk || 0;
                           const riskDisplay =

@@ -172,7 +172,7 @@ describe('PositionWorkspace', () => {
     const marginControl = screen.getByText('Margin', { selector: 'label' }).closest('div');
     const beControl = screen.getByText('Final Break Even', { selector: 'label' }).closest('div');
     const totalSizeControl = screen
-      .getByText('Total Size (Base)', { selector: 'label' })
+      .getByText('Final Size (Base)', { selector: 'label' })
       .closest('div');
     const totalCostControl = screen
       .getByText('Notional Cost', { selector: 'label' })
@@ -239,7 +239,7 @@ describe('PositionWorkspace', () => {
     const marginControl = screen.getByText('Margin', { selector: 'label' }).closest('div');
     const beControl = screen.getByText('Final Break Even', { selector: 'label' }).closest('div');
     const totalSizeControl = screen
-      .getByText('Total Size (Base)', { selector: 'label' })
+      .getByText('Final Size (Base)', { selector: 'label' })
       .closest('div');
     const totalCostControl = screen
       .getByText('Notional Cost', { selector: 'label' })

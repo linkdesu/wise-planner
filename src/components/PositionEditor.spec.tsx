@@ -1,5 +1,6 @@
 import { ChakraProvider } from '@chakra-ui/react';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import Decimal from 'decimal.js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PositionModel } from '../models/PositionModel';
@@ -264,5 +265,46 @@ describe('PositionEditor', () => {
 
     expect(screen.getByText(/extra/i)).toBeInTheDocument();
     expect(screen.getByDisplayValue('5')).toBeInTheDocument();
+  });
+
+  it('should add and edit chase steps', async () => {
+    const user = userEvent.setup();
+    const { rerender } = renderEditor();
+
+    fireEvent.click(screen.getByRole('button', { name: /new\sstep/i }));
+
+    rerender(
+      <ChakraProvider value={system}>
+        <PositionEditor
+          open
+          position={position}
+          setups={[setup]}
+          allSetups={[setup]}
+          accountBalance={10000}
+          accountFees={{ makerFee: 0, takerFee: 0 }}
+          onUpdate={onUpdate}
+          onRequestDelete={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </ChakraProvider>
+    );
+
+    const priceInput = screen.getByLabelText('Chase Step 1 Price');
+    await user.clear(priceInput);
+    await user.type(priceInput, '105');
+    fireEvent.blur(priceInput);
+
+    await waitFor(() => {
+      expect(position.chaseSteps[0].price).toBe(105);
+    });
+
+    const sizeInput = screen.getByLabelText('Chase Step 1 Size');
+    await user.clear(sizeInput);
+    await user.type(sizeInput, '2');
+    fireEvent.blur(sizeInput);
+
+    await waitFor(() => {
+      expect(position.chaseSteps[0].size).toBe(2);
+    });
   });
 });

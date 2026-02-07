@@ -196,4 +196,62 @@ describe('PositionModel sizing', () => {
 
     expect(position.extraRisk).toBeCloseTo(100, 6);
   });
+
+  it('should subtract filled chase step risk from remaining risk sizing', () => {
+    const setup = new SetupModel({ resizingTimes: 1, resizingRatios: [1] });
+    const position = new PositionModel({
+      side: 'long',
+      riskAmount: 100,
+      stopLossPrice: 90,
+    });
+    position.applySetup(setup);
+    position.steps[0].price = 100;
+    position.chaseSteps = [
+      {
+        id: 'chase-1',
+        price: 100,
+        size: 5,
+        cost: 0,
+        orderType: 'taker',
+        fee: 0,
+        isFilled: true,
+        isClosed: false,
+        predictedBE: 0,
+      },
+    ];
+
+    position.recalculateRiskDriven(setup, 10000);
+
+    expect(position.steps[0].size).toBeCloseTo(5, 4);
+  });
+
+  it('should include filled chase step risk in extra risk', () => {
+    const setup = new SetupModel({ resizingTimes: 1, resizingRatios: [1] });
+    const position = new PositionModel({
+      side: 'long',
+      riskAmount: 100,
+      stopLossPrice: 90,
+    });
+    position.applySetup(setup);
+    position.steps[0].price = 100;
+    position.steps[0].size = 10;
+    position.steps[0].isFilled = true;
+    position.chaseSteps = [
+      {
+        id: 'chase-1',
+        price: 100,
+        size: 2,
+        cost: 0,
+        orderType: 'taker',
+        fee: 0,
+        isFilled: true,
+        isClosed: false,
+        predictedBE: 0,
+      },
+    ];
+
+    position.recalculateRiskDriven(setup, 10000);
+
+    expect(position.extraRisk).toBeCloseTo(20, 6);
+  });
 });

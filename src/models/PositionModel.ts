@@ -14,6 +14,7 @@ export class PositionModel implements IPosition {
   stopLossPrice: number;
   riskAmount: number;
   steps: IResizingStep[];
+  chaseSteps: IResizingStep[];
   pnl?: number;
   feeTotal?: number;
   currentBE?: number;
@@ -24,6 +25,12 @@ export class PositionModel implements IPosition {
   leverage: number; // New property
 
   constructor(data: Partial<IPosition & { accountId?: string }> = {}) {
+    const normalizeSteps = (steps: IResizingStep[] = []) =>
+      steps.map((step) => ({
+        ...step,
+        isClosed: step.isClosed ?? false,
+      }));
+
     this.id = data.id || crypto.randomUUID();
     this.accountId = data.accountId || '';
     this.side = data.side || 'long';
@@ -33,10 +40,8 @@ export class PositionModel implements IPosition {
     this.entryPrice = data.entryPrice || 0;
     this.stopLossPrice = data.stopLossPrice || 0;
     this.riskAmount = data.riskAmount || 100;
-    this.steps = (data.steps || []).map((step) => ({
-      ...step,
-      isClosed: step.isClosed ?? false,
-    }));
+    this.steps = normalizeSteps(data.steps);
+    this.chaseSteps = normalizeSteps(data.chaseSteps);
     this.createdAt = data.createdAt || Date.now();
     this.pnl = data.pnl;
     this.feeTotal = data.feeTotal;
@@ -80,13 +85,16 @@ export class PositionModel implements IPosition {
     const totalRatio = this._getTotalRatio(setup);
     if (totalRatio.lte(0)) return;
 
-    console.log(`==================== Calculate Steps Size for ${setup.name} ====================`);
+    console.groupCollapsed(`Calculate for ${setup.name}`);
 
-    const filledRisk = this._calcFilledRisk();
-    this.extraRisk = Math.max(filledRisk - this.riskAmount, 0);
-    const rawRemainingRisk = this.riskAmount - filledRisk;
+    const filledRisk = this._calcFilledRiskFor(this.steps);
+    const chaseRisk = this._calcChaseRiskFor(this.chaseSteps);
+    this.extraRisk = Math.max(filledRisk + chaseRisk - this.riskAmount, 0);
+    const rawRemainingRisk = this.riskAmount - filledRisk - chaseRisk;
     const remainingRisk = Math.max(rawRemainingRisk, 0);
-    console.log(`remainingRisk: ${remainingRisk} = ${this.riskAmount} - ${filledRisk}`);
+    console.log(
+      `remainingRisk: ${remainingRisk} = ${this.riskAmount} - ${filledRisk} - ${chaseRisk}`
+    );
     const unfilledTotalRatio = this._getUnfilledTotalRatio(setup);
     const zeroUnfilled = rawRemainingRisk <= 0;
     const lossPerCost = unfilledTotalRatio.gt(0)
@@ -102,6 +110,10 @@ export class PositionModel implements IPosition {
         ? this._calcNationalCostFromRisk(accountBalance, lossPerCost, remainingRisk)
         : new Decimal(0);
     this._distributeCost(totalCost, setup, fees, zeroUnfilled);
+    this._recalculateChaseSteps(fees);
+    this._recalculateTotals([...this.steps, ...this.chaseSteps]);
+
+    console.groupEnd();
   }
 
   private _getTotalRatio(setup: ISetup): Decimal {
@@ -116,9 +128,19 @@ export class PositionModel implements IPosition {
     }, new Decimal(0));
   }
 
-  private _calcFilledRisk(): number {
-    return this.steps.reduce((sum, step) => {
+  private _calcFilledRiskFor(steps: IResizingStep[]): number {
+    return steps.reduce((sum, step) => {
       if (!step.isFilled || step.isClosed || step.price <= 0 || step.size <= 0) return sum;
+      const lossPerUnit =
+        this.side === 'long' ? step.price - this.stopLossPrice : this.stopLossPrice - step.price;
+      if (lossPerUnit <= 0) return sum;
+      return sum + step.size * lossPerUnit;
+    }, 0);
+  }
+
+  private _calcChaseRiskFor(steps: IResizingStep[]): number {
+    return steps.reduce((sum, step) => {
+      if (step.isClosed || step.price <= 0 || step.size <= 0) return sum;
       const lossPerUnit =
         this.side === 'long' ? step.price - this.stopLossPrice : this.stopLossPrice - step.price;
       if (lossPerUnit <= 0) return sum;
@@ -304,8 +326,78 @@ export class PositionModel implements IPosition {
     this.feeTotal = totalFilledFee.toNumber();
   }
 
+  private _recalculateChaseSteps(fees?: { makerFee: number; takerFee: number }) {
+    let cumulativeSize = new Decimal(0);
+    let cumulativeCost = new Decimal(0);
+
+    console.log(`==================== Chase Steps ====================`);
+
+    // Cumulative planned steps costs
+    this.steps.forEach((step) => {
+      // Because the chasing steps are ahead of the planned steps, so we only consider the filled planned steps.
+      if (!step.isFilled || step.isClosed || step.price <= 0 || step.size <= 0) return;
+      const stepCost = new Decimal(step.price).times(step.size);
+      const stepFee = new Decimal(step.fee || 0);
+      cumulativeSize = cumulativeSize.plus(step.size);
+      cumulativeCost = cumulativeCost.plus(stepCost).plus(stepFee);
+    });
+
+    console.log(`cumulativeSize of planned steps: ${cumulativeSize}`);
+    console.log(`cumulativeCost of planned steps: ${cumulativeCost}`);
+
+    this.chaseSteps.forEach((step) => {
+      if (step.isClosed) return;
+      if (step.price <= 0 || step.size <= 0) {
+        step.cost = 0;
+        step.fee = 0;
+        step.predictedBE = cumulativeSize.gt(0) ? cumulativeCost.div(cumulativeSize).toNumber() : 0;
+        return;
+      }
+
+      const feeRate = step.orderType === 'maker' ? fees?.makerFee || 0 : fees?.takerFee || 0;
+      const priceDec = new Decimal(step.price);
+      const sizeDec = new Decimal(step.size);
+      const stepCost = priceDec.times(sizeDec);
+      const stepFee = stepCost.times(feeRate);
+      step.cost = stepCost.toNumber();
+      step.fee = stepFee.toNumber();
+
+      cumulativeSize = cumulativeSize.plus(sizeDec);
+      cumulativeCost = cumulativeCost.plus(stepCost).plus(stepFee);
+
+      console.log(`step.predictedBE: ${step.predictedBE} = ${cumulativeCost} / ${cumulativeSize}`);
+
+      step.predictedBE = cumulativeSize.gt(0) ? cumulativeCost.div(cumulativeSize).toNumber() : 0;
+    });
+  }
+
+  private _recalculateTotals(steps: IResizingStep[]) {
+    let totalSize = new Decimal(0);
+    let totalCost = new Decimal(0);
+    let filledSize = new Decimal(0);
+    let filledCost = new Decimal(0);
+    let filledFee = new Decimal(0);
+
+    steps.forEach((step) => {
+      if (step.isClosed || step.price <= 0 || step.size <= 0) return;
+      const stepCost = new Decimal(step.price).times(step.size);
+      const stepFee = new Decimal(step.fee || 0);
+      totalSize = totalSize.plus(step.size);
+      totalCost = totalCost.plus(stepCost).plus(stepFee);
+      if (step.isFilled) {
+        filledSize = filledSize.plus(step.size);
+        filledCost = filledCost.plus(stepCost).plus(stepFee);
+        filledFee = filledFee.plus(stepFee);
+      }
+    });
+
+    this.predictedBE = totalSize.gt(0) ? totalCost.div(totalSize).toNumber() : 0;
+    this.currentBE = filledSize.gt(0) ? filledCost.div(filledSize).toNumber() : 0;
+    this.feeTotal = filledFee.toNumber();
+  }
+
   getMarginEstimate(): number {
-    const totalCost = this.steps.reduce((sum, step) => {
+    const totalCost = [...this.steps, ...this.chaseSteps].reduce((sum, step) => {
       if (step.isClosed) return sum;
       return sum + step.size * step.price;
     }, 0);

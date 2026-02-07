@@ -194,7 +194,7 @@ export function PositionHistoryTable() {
                   const marginEstimate = position.getMarginEstimate
                     ? position.getMarginEstimate()
                     : 0;
-                  const notionalCost = position.steps.reduce(
+                  const notionalCost = [...position.steps, ...position.chaseSteps].reduce(
                     (sum, step) => sum + step.size * step.price,
                     0
                   );
