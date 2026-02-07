@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PositionModel } from '../models/PositionModel';
 import { SetupModel } from '../models/SetupModel';
 import system from '../theme/monokai';
-import { Overview } from './Overview';
+import { PositionHistoryTable } from './PositionHistoryTable';
 
 let plannerState: ReturnType<typeof createPlannerState>;
 const OVERVIEW_HISTORY_PER_PAGE_KEY = 'overview.history.perPage';
@@ -117,23 +117,22 @@ vi.mock('../hooks/usePlanner', () => {
   };
 });
 
-describe('Overview', () => {
+describe('PositionHistoryTable', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     plannerState = createPlannerState();
   });
 
-  const renderOverview = () =>
+  const renderTable = () =>
     render(
       <ChakraProvider value={system}>
-        <Overview />
+        <PositionHistoryTable />
       </ChakraProvider>
     );
 
   it('renders history rows for closed positions', () => {
-    renderOverview();
+    renderTable();
 
-    expect(screen.getByText('History')).toBeInTheDocument();
     expect(screen.getByText('BTCUSDT')).toBeInTheDocument();
     expect(screen.getByText('ETHUSDT')).toBeInTheDocument();
     expect(screen.getByText('SOLUSDT')).toBeInTheDocument();
@@ -142,7 +141,7 @@ describe('Overview', () => {
   it('ignores persisted filter configs and defaults to All filters', () => {
     plannerState.setConfigValue(OVERVIEW_HISTORY_PER_PAGE_KEY, 10);
 
-    renderOverview();
+    renderTable();
 
     expect(screen.getByText('BTCUSDT')).toBeInTheDocument();
     expect(screen.getByText('ETHUSDT')).toBeInTheDocument();
@@ -152,9 +151,8 @@ describe('Overview', () => {
   it('paginates history based on per-page preference', () => {
     plannerState.setConfigValue(OVERVIEW_HISTORY_PER_PAGE_KEY, 1);
 
-    renderOverview();
+    renderTable();
 
-    const matches = screen.getAllByText((_, node) => node?.textContent?.includes('1 / 3') ?? false);
-    expect(matches.length).toBeGreaterThan(0);
+    expect(screen.getByText('1 / 3')).toBeInTheDocument();
   });
 });

@@ -1,5 +1,5 @@
 import { ChakraProvider } from '@chakra-ui/react';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import Decimal from 'decimal.js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PositionModel } from '../models/PositionModel';
@@ -107,6 +107,8 @@ vi.mock('../hooks/usePlanner', () => {
       addPosition: plannerState.addPosition,
       updatePosition: plannerState.updatePosition,
       deletePosition: plannerState.deletePosition,
+      getConfigValue: (_key: string, fallback: unknown) => fallback,
+      setConfigValue: vi.fn(),
     }),
   };
 });
@@ -117,6 +119,10 @@ describe('PositionWorkspace', () => {
     plannerState = createPlannerState();
   });
 
+  const openEditor = () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+  };
+
   const renderWorkspace = () =>
     render(
       <ChakraProvider value={system}>
@@ -124,7 +130,7 @@ describe('PositionWorkspace', () => {
       </ChakraProvider>
     );
 
-  it('should keep risk amount and price when stop loss changes', () => {
+  it('should keep risk amount and price when stop loss changes', async () => {
     const { rerender } = renderWorkspace();
     const position = plannerState.positions[0];
     const setup = plannerState.setups[0];
@@ -137,13 +143,15 @@ describe('PositionWorkspace', () => {
         <PositionWorkspace />
       </ChakraProvider>
     );
+    openEditor();
 
+    expect(await screen.findByText('Edit Position')).toBeInTheDocument();
     expect(screen.getByDisplayValue('100')).toBeInTheDocument();
     expect(screen.getByDisplayValue('120')).toBeInTheDocument();
     expect(screen.getByDisplayValue('110')).toBeInTheDocument();
   });
 
-  it('should update margin, BE, total size, and notional cost when stop loss changes', () => {
+  it('should update margin, BE, total size, and notional cost when stop loss changes', async () => {
     const { rerender } = renderWorkspace();
     const position = plannerState.positions[0];
     const setup = plannerState.setups[0];
@@ -156,12 +164,15 @@ describe('PositionWorkspace', () => {
         <PositionWorkspace />
       </ChakraProvider>
     );
+    openEditor();
+
+    expect(await screen.findByText('Edit Position')).toBeInTheDocument();
 
     const expected = computeExpected(90, 100);
     const marginControl = screen.getByText('Margin', { selector: 'label' }).closest('div');
     const beControl = screen.getByText('Final Break Even', { selector: 'label' }).closest('div');
     const totalSizeControl = screen
-      .getByText('Total Size (Base Asset)', { selector: 'label' })
+      .getByText('Total Size (Base)', { selector: 'label' })
       .closest('div');
     const totalCostControl = screen
       .getByText('Notional Cost', { selector: 'label' })
@@ -186,7 +197,7 @@ describe('PositionWorkspace', () => {
     ).toBeInTheDocument();
   });
 
-  it('should keep stop loss and price when risk amount changes', () => {
+  it('should keep stop loss and price when risk amount changes', async () => {
     const { rerender } = renderWorkspace();
     const position = plannerState.positions[0];
     const setup = plannerState.setups[0];
@@ -199,13 +210,15 @@ describe('PositionWorkspace', () => {
         <PositionWorkspace />
       </ChakraProvider>
     );
+    openEditor();
 
+    expect(await screen.findByText('Edit Position')).toBeInTheDocument();
     expect(screen.getByDisplayValue('95')).toBeInTheDocument();
     expect(screen.getByDisplayValue('120')).toBeInTheDocument();
     expect(screen.getByDisplayValue('110')).toBeInTheDocument();
   });
 
-  it('should update margin, BE, total size, and notional cost when risk amount changes', () => {
+  it('should update margin, BE, total size, and notional cost when risk amount changes', async () => {
     const { rerender } = renderWorkspace();
     const position = plannerState.positions[0];
     const setup = plannerState.setups[0];
@@ -218,12 +231,15 @@ describe('PositionWorkspace', () => {
         <PositionWorkspace />
       </ChakraProvider>
     );
+    openEditor();
+
+    expect(await screen.findByText('Edit Position')).toBeInTheDocument();
 
     const expected = computeExpected(95, 200);
     const marginControl = screen.getByText('Margin', { selector: 'label' }).closest('div');
     const beControl = screen.getByText('Final Break Even', { selector: 'label' }).closest('div');
     const totalSizeControl = screen
-      .getByText('Total Size (Base Asset)', { selector: 'label' })
+      .getByText('Total Size (Base)', { selector: 'label' })
       .closest('div');
     const totalCostControl = screen
       .getByText('Notional Cost', { selector: 'label' })
@@ -248,10 +264,12 @@ describe('PositionWorkspace', () => {
     ).toBeInTheDocument();
   });
 
-  it('should disable close until realized PnL is provided', () => {
+  it('should disable close until realized PnL is provided', async () => {
     const { rerender } = renderWorkspace();
+    openEditor();
 
-    expect(screen.getByRole('button', { name: /close/i })).toBeDisabled();
+    expect(await screen.findByText('Edit Position')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /close position/i })).toBeDisabled();
 
     const position = plannerState.positions[0];
     position.pnl = 123;
@@ -262,6 +280,6 @@ describe('PositionWorkspace', () => {
       </ChakraProvider>
     );
 
-    expect(screen.getByRole('button', { name: /close/i })).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: /close position/i })).not.toBeDisabled();
   });
 });
