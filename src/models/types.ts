@@ -63,3 +63,28 @@ export interface IAccountChange {
   note: string;
   createdAt: number;
 }
+
+export interface ITagField {
+  id: string;
+  name: string;
+  type: 'single' | 'multi' | 'boolean' | 'number';
+  sortOrder: number;
+  isCore: boolean;
+  isActive: boolean;
+  createdAt: number;
+}
+
+export interface ITagValue {
+  id: string;
+  fieldId: string;
+  label: string;
+  createdAt: number;
+}
+
+export interface IPositionTag {
+  id: string;
+  positionId: string;
+  fieldId: string;
+  valueId: string;
+  createdAt: number;
+}

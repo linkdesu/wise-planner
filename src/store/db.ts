@@ -3,7 +3,11 @@ import { AccountChangeModel } from '../models/AccountChangeModel';
 import { AccountModel } from '../models/AccountModel';
 import { Config } from '../models/ConfigModel';
 import { PositionModel } from '../models/PositionModel';
+import { PositionTagModel } from '../models/PositionTagModel';
 import { SetupModel } from '../models/SetupModel';
+import { TagFieldModel } from '../models/TagFieldModel';
+import { TagValueModel } from '../models/TagValueModel';
+import { CORE_TAG_FIELDS, CORE_TAG_VALUES } from '../models/tagDefaults';
 import type { JSONValue } from '../models/types';
 
 interface PlannerDB extends DBSchema {
@@ -25,6 +29,20 @@ interface PlannerDB extends DBSchema {
     value: PositionModel;
     indexes: { 'by-account': string };
   };
+  tagFields: {
+    key: string;
+    value: TagFieldModel;
+  };
+  tagValues: {
+    key: string;
+    value: TagValueModel;
+    indexes: { 'by-field': string };
+  };
+  positionTags: {
+    key: string;
+    value: PositionTagModel;
+    indexes: { 'by-position': string; 'by-field': string; 'by-value': string };
+  };
   configs: {
     key: string;
     value: Config;
@@ -32,7 +50,7 @@ interface PlannerDB extends DBSchema {
 }
 
 const DB_NAME = 'position-planner-db';
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 
 const LEGACY_OVERVIEW_HISTORY_ID = 'overview-history';
 const OVERVIEW_HISTORY_PER_PAGE_KEY = 'overview.history.perPage';
@@ -56,6 +74,19 @@ export function initDB() {
         if (!db.objectStoreNames.contains('positions')) {
           const posStore = db.createObjectStore('positions', { keyPath: 'id' });
           posStore.createIndex('by-account', 'accountId');
+        }
+        if (!db.objectStoreNames.contains('tagFields')) {
+          db.createObjectStore('tagFields', { keyPath: 'id' });
+        }
+        if (!db.objectStoreNames.contains('tagValues')) {
+          const tagValueStore = db.createObjectStore('tagValues', { keyPath: 'id' });
+          tagValueStore.createIndex('by-field', 'fieldId');
+        }
+        if (!db.objectStoreNames.contains('positionTags')) {
+          const positionTagStore = db.createObjectStore('positionTags', { keyPath: 'id' });
+          positionTagStore.createIndex('by-position', 'positionId');
+          positionTagStore.createIndex('by-field', 'fieldId');
+          positionTagStore.createIndex('by-value', 'valueId');
         }
 
         const configsExists = db.objectStoreNames.contains('configs');
@@ -101,6 +132,23 @@ export function initDB() {
             }
           }
         }
+
+        if (oldVersion < 6) {
+          const tagFieldStore = tx.objectStore('tagFields');
+          const tagValueStore = tx.objectStore('tagValues');
+          const existingFieldCount = await tagFieldStore.count();
+          const existingValueCount = await tagValueStore.count();
+          if (existingFieldCount === 0) {
+            for (const field of CORE_TAG_FIELDS) {
+              tagFieldStore.put(field);
+            }
+          }
+          if (existingValueCount === 0) {
+            for (const value of CORE_TAG_VALUES) {
+              tagValueStore.put(value);
+            }
+          }
+        }
       },
     });
   }
@@ -130,6 +178,21 @@ export async function getAllPositions(): Promise<PositionModel[]> {
 export async function getConfig(key: string): Promise<Config | undefined> {
   const db = await initDB();
   return db.get('configs', key);
+}
+
+export async function getAllTagFields(): Promise<TagFieldModel[]> {
+  const db = await initDB();
+  return db.getAll('tagFields');
+}
+
+export async function getAllTagValues(): Promise<TagValueModel[]> {
+  const db = await initDB();
+  return db.getAll('tagValues');
+}
+
+export async function getAllPositionTags(): Promise<PositionTagModel[]> {
+  const db = await initDB();
+  return db.getAll('positionTags');
 }
 
 export async function getAllConfigs(): Promise<Config[]> {
@@ -172,6 +235,21 @@ export async function savePosition(position: PositionModel) {
   return db.put('positions', position);
 }
 
+export async function saveTagField(tagField: TagFieldModel) {
+  const db = await initDB();
+  return db.put('tagFields', tagField);
+}
+
+export async function saveTagValue(tagValue: TagValueModel) {
+  const db = await initDB();
+  return db.put('tagValues', tagValue);
+}
+
+export async function savePositionTag(positionTag: PositionTagModel) {
+  const db = await initDB();
+  return db.put('positionTags', positionTag);
+}
+
 export async function saveConfig(config: Config) {
   const db = await initDB();
   return db.put('configs', config);
@@ -182,6 +260,61 @@ export async function deletePosition(id: string) {
   return db.delete('positions', id);
 }
 
+export async function deleteTagField(id: string) {
+  const db = await initDB();
+  return db.delete('tagFields', id);
+}
+
+export async function deleteTagValue(id: string) {
+  const db = await initDB();
+  return db.delete('tagValues', id);
+}
+
+export async function deletePositionTag(id: string) {
+  const db = await initDB();
+  return db.delete('positionTags', id);
+}
+
+export async function deletePositionTagsByPosition(positionId: string) {
+  const db = await initDB();
+  const tx = db.transaction('positionTags', 'readwrite');
+  const ids = await tx.store.index('by-position').getAllKeys(positionId);
+  for (const id of ids) {
+    await tx.store.delete(id);
+  }
+  await tx.done;
+}
+
+export async function deletePositionTagsByField(fieldId: string) {
+  const db = await initDB();
+  const tx = db.transaction('positionTags', 'readwrite');
+  const ids = await tx.store.index('by-field').getAllKeys(fieldId);
+  for (const id of ids) {
+    await tx.store.delete(id);
+  }
+  await tx.done;
+}
+
+export async function deletePositionTagsByValue(valueId: string) {
+  const db = await initDB();
+  const tx = db.transaction('positionTags', 'readwrite');
+  const ids = await tx.store.index('by-value').getAllKeys(valueId);
+  for (const id of ids) {
+    await tx.store.delete(id);
+  }
+  await tx.done;
+}
+
+export async function deleteTagValuesByField(fieldId: string) {
+  const db = await initDB();
+  const tx = db.transaction('tagValues', 'readwrite');
+  const ids = await tx.store.index('by-field').getAllKeys(fieldId);
+  for (const id of ids) {
+    await tx.store.delete(id);
+  }
+  await tx.done;
+}
+
 export async function deleteConfig(key: string) {
   const db = await initDB();
   return db.delete('configs', key);
@@ -190,7 +323,16 @@ export async function deleteConfig(key: string) {
 export async function clearAll() {
   const db = await initDB();
   const tx = db.transaction(
-    ['accounts', 'accountChanges', 'setups', 'positions', 'configs'],
+    [
+      'accounts',
+      'accountChanges',
+      'setups',
+      'positions',
+      'tagFields',
+      'tagValues',
+      'positionTags',
+      'configs',
+    ],
     'readwrite'
   );
   await Promise.all([
@@ -198,6 +340,9 @@ export async function clearAll() {
     tx.objectStore('accountChanges').clear(),
     tx.objectStore('setups').clear(),
     tx.objectStore('positions').clear(),
+    tx.objectStore('tagFields').clear(),
+    tx.objectStore('tagValues').clear(),
+    tx.objectStore('positionTags').clear(),
     tx.objectStore('configs').clear(),
     tx.done,
   ]);
@@ -208,11 +353,23 @@ export async function bulkSave(
   accountChanges: AccountChangeModel[],
   setups: SetupModel[],
   positions: PositionModel[],
+  tagFields: TagFieldModel[],
+  tagValues: TagValueModel[],
+  positionTags: PositionTagModel[],
   configs: Config[]
 ) {
   const db = await initDB();
   const tx = db.transaction(
-    ['accounts', 'accountChanges', 'setups', 'positions', 'configs'],
+    [
+      'accounts',
+      'accountChanges',
+      'setups',
+      'positions',
+      'tagFields',
+      'tagValues',
+      'positionTags',
+      'configs',
+    ],
     'readwrite'
   );
 
@@ -220,6 +377,9 @@ export async function bulkSave(
   await tx.objectStore('accountChanges').clear();
   await tx.objectStore('setups').clear();
   await tx.objectStore('positions').clear();
+  await tx.objectStore('tagFields').clear();
+  await tx.objectStore('tagValues').clear();
+  await tx.objectStore('positionTags').clear();
   await tx.objectStore('configs').clear();
 
   for (const acc of accounts) {
@@ -233,6 +393,15 @@ export async function bulkSave(
   }
   for (const pos of positions) {
     await tx.objectStore('positions').put(pos);
+  }
+  for (const tagField of tagFields) {
+    await tx.objectStore('tagFields').put(tagField);
+  }
+  for (const tagValue of tagValues) {
+    await tx.objectStore('tagValues').put(tagValue);
+  }
+  for (const positionTag of positionTags) {
+    await tx.objectStore('positionTags').put(positionTag);
   }
   for (const config of configs) {
     await tx.objectStore('configs').put(config);

@@ -2,7 +2,11 @@ import { AccountChangeModel } from '../models/AccountChangeModel';
 import { AccountModel } from '../models/AccountModel';
 import { Config } from '../models/ConfigModel';
 import { PositionModel } from '../models/PositionModel';
+import { PositionTagModel } from '../models/PositionTagModel';
 import { SetupModel } from '../models/SetupModel';
+import { TagFieldModel } from '../models/TagFieldModel';
+import { TagValueModel } from '../models/TagValueModel';
+import { CORE_TAG_FIELDS, CORE_TAG_VALUES } from '../models/tagDefaults';
 import type { JSONValue } from '../models/types';
 import * as db from './db';
 
@@ -22,6 +26,9 @@ export class PlannerStore {
   accountChanges: AccountChangeModel[] = [];
   setups: SetupModel[] = [];
   positions: PositionModel[] = [];
+  tagFields: TagFieldModel[] = [];
+  tagValues: TagValueModel[] = [];
+  positionTags: PositionTagModel[] = [];
   configs: Config[] = [];
   configMap: Map<string, Config> = new Map();
   isLoading: boolean = true;
@@ -33,6 +40,9 @@ export class PlannerStore {
     accountChanges: this.accountChanges,
     setups: this.setups,
     positions: this.positions,
+    tagFields: this.tagFields,
+    tagValues: this.tagValues,
+    positionTags: this.positionTags,
     configs: this.configs,
     isLoading: this.isLoading,
   };
@@ -94,20 +104,35 @@ export class PlannerStore {
   }
 
   async loadFromDB() {
-    const [storedAccounts, storedAccountChanges, storedSetups, storedPositions, storedConfigs] =
-      await Promise.all([
-        db.getAllAccounts(),
-        db.getAllAccountChanges(),
-        db.getAllSetups(),
-        db.getAllPositions(),
-        db.getAllConfigs(),
-      ]);
+    const [
+      storedAccounts,
+      storedAccountChanges,
+      storedSetups,
+      storedPositions,
+      storedTagFields,
+      storedTagValues,
+      storedPositionTags,
+      storedConfigs,
+    ] = await Promise.all([
+      db.getAllAccounts(),
+      db.getAllAccountChanges(),
+      db.getAllSetups(),
+      db.getAllPositions(),
+      db.getAllTagFields(),
+      db.getAllTagValues(),
+      db.getAllPositionTags(),
+      db.getAllConfigs(),
+    ]);
 
     // Re-hydrate plain objects into Models including methods
     this.accounts = storedAccounts.map((d) => new AccountModel(d));
     this.accountChanges = storedAccountChanges.map((d) => new AccountChangeModel(d));
     this.setups = storedSetups.map((d) => new SetupModel(d));
     this.positions = storedPositions.map((d) => new PositionModel(d));
+    this.tagFields = storedTagFields.map((d) => new TagFieldModel(d));
+    this.tagValues = storedTagValues.map((d) => new TagValueModel(d));
+    this.positionTags = storedPositionTags.map((d) => new PositionTagModel(d));
+    this.ensureDefaultTags();
 
     const configsFromKeys = storedConfigs
       .map((d) => new Config(d))
@@ -153,6 +178,9 @@ export class PlannerStore {
       accountChanges: [...this.accountChanges],
       setups: [...this.setups],
       positions: [...this.positions],
+      tagFields: [...this.tagFields],
+      tagValues: [...this.tagValues],
+      positionTags: [...this.positionTags],
       configs: [...this.configs],
       isLoading: this.isLoading,
     };
@@ -193,6 +221,18 @@ export class PlannerStore {
     this.addAccount(account);
   }
 
+  private ensureDefaultTags() {
+    if (this.tagFields.length > 0) return;
+    this.tagFields = CORE_TAG_FIELDS.map((field) => new TagFieldModel(field));
+    this.tagValues = CORE_TAG_VALUES.map((value) => new TagValueModel(value));
+    this.tagFields.forEach((field) => {
+      db.saveTagField(field).catch((e) => console.error('DB Save Error', e));
+    });
+    this.tagValues.forEach((value) => {
+      db.saveTagValue(value).catch((e) => console.error('DB Save Error', e));
+    });
+  }
+
   // CRUD for Accounts
   addAccount(account: AccountModel) {
     this.accounts.push(account);
@@ -212,13 +252,16 @@ export class PlannerStore {
   deleteAccount(id: string) {
     const positionsToDelete = this.positions.filter((p) => p.accountId === id);
     const changesToDelete = this.accountChanges.filter((change) => change.accountId === id);
+    const positionIdsToDelete = new Set(positionsToDelete.map((position) => position.id));
     this.accounts = this.accounts.filter((a) => a.id !== id);
     this.accountChanges = this.accountChanges.filter((change) => change.accountId !== id);
     this.positions = this.positions.filter((p) => p.accountId !== id);
+    this.positionTags = this.positionTags.filter((tag) => !positionIdsToDelete.has(tag.positionId));
     this.recalcAllAccounts();
     this.updateSnapshot();
     Promise.all([
       ...positionsToDelete.map((position) => db.deletePosition(position.id)),
+      ...positionsToDelete.map((position) => db.deletePositionTagsByPosition(position.id)),
       ...changesToDelete.map((change) => db.deleteAccountChange(change.id)),
       db.deleteAccount(id),
     ]).catch((e) => console.error('DB Delete Error', e));
@@ -352,9 +395,118 @@ export class PlannerStore {
 
   deletePosition(id: string) {
     this.positions = this.positions.filter((p) => p.id !== id);
+    this.positionTags = this.positionTags.filter((tag) => tag.positionId !== id);
     this.recalcAllAccounts();
     this.updateSnapshot();
-    db.deletePosition(id).catch((e) => console.error('DB Delete Error', e));
+    Promise.all([db.deletePosition(id), db.deletePositionTagsByPosition(id)]).catch((e) =>
+      console.error('DB Delete Error', e)
+    );
+  }
+
+  // CRUD for Tag Fields
+  addTagField(tagField: TagFieldModel) {
+    this.tagFields.push(tagField);
+    this.updateSnapshot();
+    db.saveTagField(tagField).catch((e) => console.error('DB Save Error', e));
+  }
+
+  updateTagField(tagField: TagFieldModel) {
+    const idx = this.tagFields.findIndex((field) => field.id === tagField.id);
+    if (idx === -1) return;
+    this.tagFields[idx] = tagField;
+    this.updateSnapshot();
+    db.saveTagField(tagField).catch((e) => console.error('DB Update Error', e));
+  }
+
+  deleteTagField(id: string) {
+    const valueIds = new Set(
+      this.tagValues.filter((value) => value.fieldId === id).map((v) => v.id)
+    );
+    this.tagFields = this.tagFields.filter((field) => field.id !== id);
+    this.tagValues = this.tagValues.filter((value) => value.fieldId !== id);
+    this.positionTags = this.positionTags.filter(
+      (tag) => tag.fieldId !== id && !valueIds.has(tag.valueId)
+    );
+    this.updateSnapshot();
+    Promise.all([
+      db.deleteTagField(id),
+      db.deleteTagValuesByField(id),
+      db.deletePositionTagsByField(id),
+      ...Array.from(valueIds).map((valueId) => db.deletePositionTagsByValue(valueId)),
+    ]).catch((e) => console.error('DB Delete Error', e));
+  }
+
+  // CRUD for Tag Values
+  addTagValue(tagValue: TagValueModel) {
+    this.tagValues.push(tagValue);
+    this.updateSnapshot();
+    db.saveTagValue(tagValue).catch((e) => console.error('DB Save Error', e));
+  }
+
+  updateTagValue(tagValue: TagValueModel) {
+    const idx = this.tagValues.findIndex((value) => value.id === tagValue.id);
+    if (idx === -1) return;
+    this.tagValues[idx] = tagValue;
+    this.updateSnapshot();
+    db.saveTagValue(tagValue).catch((e) => console.error('DB Update Error', e));
+  }
+
+  deleteTagValue(id: string) {
+    this.tagValues = this.tagValues.filter((value) => value.id !== id);
+    this.positionTags = this.positionTags.filter((tag) => tag.valueId !== id);
+    this.updateSnapshot();
+    Promise.all([db.deleteTagValue(id), db.deletePositionTagsByValue(id)]).catch((e) =>
+      console.error('DB Delete Error', e)
+    );
+  }
+
+  setPositionTag(positionId: string, fieldId: string, valueId: string) {
+    this.setPositionTags(positionId, fieldId, [valueId]);
+  }
+
+  setPositionTags(positionId: string, fieldId: string, valueIds: string[]) {
+    const uniqueValueIds = Array.from(new Set(valueIds.filter(Boolean)));
+    const existing = this.positionTags.filter(
+      (tag) => tag.positionId === positionId && tag.fieldId === fieldId
+    );
+    const existingByValue = new Map(existing.map((tag) => [tag.valueId, tag]));
+    const keepIds = new Set<string>();
+    const toSave: PositionTagModel[] = [];
+
+    uniqueValueIds.forEach((valueId) => {
+      const existingTag = existingByValue.get(valueId);
+      if (existingTag) {
+        keepIds.add(existingTag.id);
+        return;
+      }
+      const next = new PositionTagModel({ positionId, fieldId, valueId });
+      keepIds.add(next.id);
+      toSave.push(next);
+    });
+
+    const toDelete = existing.filter((tag) => !keepIds.has(tag.id));
+    this.positionTags = this.positionTags
+      .filter((tag) => !(tag.positionId === positionId && tag.fieldId === fieldId))
+      .concat(existing.filter((tag) => keepIds.has(tag.id)))
+      .concat(toSave);
+    this.updateSnapshot();
+    Promise.all([
+      ...toSave.map((tag) => db.savePositionTag(tag)),
+      ...toDelete.map((tag) => db.deletePositionTag(tag.id)),
+    ]).catch((e) => console.error('DB Update Error', e));
+  }
+
+  clearPositionTag(positionId: string, fieldId: string) {
+    const existing = this.positionTags.filter(
+      (tag) => tag.positionId === positionId && tag.fieldId === fieldId
+    );
+    if (existing.length === 0) return;
+    const ids = new Set(existing.map((tag) => tag.id));
+    this.positionTags = this.positionTags.filter((tag) => !ids.has(tag.id));
+    this.updateSnapshot();
+    Promise.all(existing.map((tag) => db.deletePositionTag(tag.id))).catch((e) =>
+      console.error('DB Delete Error', e)
+    );
   }
 
   // Import/Export
@@ -365,6 +517,9 @@ export class PlannerStore {
         accountChanges: this.accountChanges,
         setups: this.setups,
         positions: this.positions,
+        tagFields: this.tagFields,
+        tagValues: this.tagValues,
+        positionTags: this.positionTags,
         configs: this.configs,
       },
       null,
@@ -383,6 +538,21 @@ export class PlannerStore {
       const positions = (data.positions || []).map(
         (d: Partial<PositionModel>) => new PositionModel(d)
       );
+      const tagFields = (data.tagFields || []).map(
+        (d: Partial<TagFieldModel>) => new TagFieldModel(d)
+      );
+      const tagValues = (data.tagValues || []).map(
+        (d: Partial<TagValueModel>) => new TagValueModel(d)
+      );
+      const positionTags = (data.positionTags || []).map(
+        (d: Partial<PositionTagModel>) => new PositionTagModel(d)
+      );
+      if (tagFields.length === 0) {
+        tagFields.push(...CORE_TAG_FIELDS.map((field) => new TagFieldModel(field)));
+      }
+      if (tagValues.length === 0) {
+        tagValues.push(...CORE_TAG_VALUES.map((value) => new TagValueModel(value)));
+      }
 
       const rawConfigs: unknown[] = data.configs || [];
       const configsFromKeys = rawConfigs
@@ -395,13 +565,25 @@ export class PlannerStore {
       );
 
       // Update DB
-      await db.bulkSave(accounts, accountChanges, setups, positions, cleanedConfigs);
+      await db.bulkSave(
+        accounts,
+        accountChanges,
+        setups,
+        positions,
+        tagFields,
+        tagValues,
+        positionTags,
+        cleanedConfigs
+      );
 
       // Update Memory
       this.accounts = accounts;
       this.accountChanges = accountChanges;
       this.setups = setups;
       this.positions = positions;
+      this.tagFields = tagFields;
+      this.tagValues = tagValues;
+      this.positionTags = positionTags;
       this.setConfigs(cleanedConfigs);
       this.recalcAllAccounts();
       this.updateSnapshot();

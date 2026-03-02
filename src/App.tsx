@@ -4,6 +4,7 @@ import { AccountManager } from './components/AccountManager';
 import { Overview } from './components/Overview';
 import { PositionWorkspace } from './components/PositionWorkspace';
 import { SetupManager } from './components/SetupManager';
+import { TagsManager } from './components/TagsManager';
 import { Toaster } from './components/ui/Toaster';
 import { toaster } from './components/ui/toaster-create';
 import { FILE_DATETIME_FORMAT } from './const';
@@ -139,6 +140,13 @@ function App() {
             >
               Setups
             </Tabs.Trigger>
+            <Tabs.Trigger
+              value="tags"
+              color="muted"
+              _selected={{ color: 'accentAlt', borderColor: 'muted', borderBottomColor: 'bg' }}
+            >
+              Tags
+            </Tabs.Trigger>
           </Tabs.List>
 
           <Tabs.Content value="overview">
@@ -152,6 +160,9 @@ function App() {
           </Tabs.Content>
           <Tabs.Content value="setups">
             <SetupManager />
+          </Tabs.Content>
+          <Tabs.Content value="tags">
+            <TagsManager />
           </Tabs.Content>
         </Tabs.Root>
       </Box>

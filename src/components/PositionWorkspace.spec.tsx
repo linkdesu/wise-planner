@@ -42,6 +42,9 @@ const createPlannerState = () => {
     accounts: [account],
     setups: [setup],
     positions: [position],
+    tagFields: [],
+    tagValues: [],
+    positionTags: [],
     addPosition: vi.fn(),
     updatePosition: vi.fn((updated: PositionModel) => {
       plannerState.positions = plannerState.positions.map((p) =>
@@ -49,6 +52,9 @@ const createPlannerState = () => {
       );
     }),
     deletePosition: vi.fn(),
+    setPositionTag: vi.fn(),
+    setPositionTags: vi.fn(),
+    clearPositionTag: vi.fn(),
   };
 };
 
@@ -104,9 +110,15 @@ vi.mock('../hooks/usePlanner', () => {
       accounts: plannerState.accounts,
       setups: plannerState.setups,
       positions: plannerState.positions,
+      tagFields: plannerState.tagFields,
+      tagValues: plannerState.tagValues,
+      positionTags: plannerState.positionTags,
       addPosition: plannerState.addPosition,
       updatePosition: plannerState.updatePosition,
       deletePosition: plannerState.deletePosition,
+      setPositionTag: plannerState.setPositionTag,
+      setPositionTags: plannerState.setPositionTags,
+      clearPositionTag: plannerState.clearPositionTag,
       getConfigValue: (_key: string, fallback: unknown) => fallback,
       setConfigValue: vi.fn(),
     }),

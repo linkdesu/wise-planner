@@ -20,3 +20,7 @@ if (!window.ResizeObserver) {
     disconnect() {}
   };
 }
+
+if (!Element.prototype.scrollTo) {
+  Element.prototype.scrollTo = () => undefined;
+}

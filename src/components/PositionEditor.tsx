@@ -20,8 +20,12 @@ import {
 import { Plus, Trash, X } from 'lucide-react';
 import { useState } from 'react';
 import { PositionModel } from '../models/PositionModel';
+import { PositionTagModel } from '../models/PositionTagModel';
 import { SetupModel } from '../models/SetupModel';
+import { TagFieldModel } from '../models/TagFieldModel';
+import { TagValueModel } from '../models/TagValueModel';
 import type { OrderType } from '../models/types';
+import { MultiSelect } from './ui/MultiSelect';
 import { NumberInput } from './ui/NumberInput';
 
 type PositionEditorProps = {
@@ -29,10 +33,14 @@ type PositionEditorProps = {
   position: PositionModel | null;
   setups: SetupModel[];
   allSetups: SetupModel[];
+  tagFields: TagFieldModel[];
+  tagValues: TagValueModel[];
+  positionTags: PositionTagModel[];
   accountBalance: number;
   accountFees: { makerFee: number; takerFee: number };
   onUpdate: (fn: (p: PositionModel) => void) => void;
   onRequestDelete: () => void;
+  onSetPositionTag: (fieldId: string, valueId: string | string[] | null) => void;
   onClose: () => void;
 };
 
@@ -41,10 +49,14 @@ export function PositionEditor({
   position,
   setups,
   allSetups,
+  tagFields,
+  tagValues,
+  positionTags,
   accountBalance,
   accountFees,
   onUpdate,
   onRequestDelete,
+  onSetPositionTag,
   onClose,
 }: PositionEditorProps) {
   const [riskError, setRiskError] = useState<string | null>(null);
@@ -85,6 +97,24 @@ export function PositionEditor({
       { label: 'Maker', value: 'maker' },
     ],
   });
+  const activeTagFields = [...tagFields]
+    .filter((field) => field.isActive)
+    .sort(
+      (a, b) =>
+        (a.sortOrder ?? a.createdAt) - (b.sortOrder ?? b.createdAt) || a.createdAt - b.createdAt
+    );
+  const tagValuesByField = new Map<string, TagValueModel[]>();
+  tagValues.forEach((value) => {
+    const current = tagValuesByField.get(value.fieldId) || [];
+    current.push(value);
+    tagValuesByField.set(value.fieldId, current);
+  });
+  const positionTagsByField = new Map<string, PositionTagModel[]>();
+  positionTags.forEach((tag) => {
+    const current = positionTagsByField.get(tag.fieldId) || [];
+    current.push(tag);
+    positionTagsByField.set(tag.fieldId, current);
+  });
 
   const handleSetupChange = (setupId: string) => {
     const setup = setups.find((s) => s.id === setupId);
@@ -120,6 +150,7 @@ export function PositionEditor({
   const isDeletedSetupReference = Boolean(deletedSetup?.isDeleted);
 
   const isOpened = position.status === 'opened';
+  const isPositionClosed = position.status === 'closed';
 
   const marginEst = position.getMarginEstimate ? position.getMarginEstimate() : 0;
   const allSteps = [...position.steps, ...position.chaseSteps];
@@ -238,9 +269,10 @@ export function PositionEditor({
                           </Select.Control>
                           <Select.Positioner>
                             <Select.Content
-                              bg="surface"
+                              bg="surfaceSubtle"
                               color="fg"
                               borderColor="border"
+                              borderWidth="1px"
                               boxShadow="lg"
                             >
                               {setupCollection.items.map((item) => (
@@ -278,6 +310,136 @@ export function PositionEditor({
                   <GridItem colSpan={12}>
                     <Separator my={2} borderColor="borderSubtle" />
                   </GridItem>
+
+                  {activeTagFields.length > 0 && (
+                    <>
+                      <GridItem colSpan={12}>
+                        <Text fontSize="sm" fontWeight="bold" color="accentAlt">
+                          Tags
+                        </Text>
+                      </GridItem>
+                      {activeTagFields.map((field) => {
+                        const fieldValues = tagValuesByField.get(field.id) || [];
+                        const currentTags = positionTagsByField.get(field.id) || [];
+                        const currentValueIds = currentTags.map((tag) => tag.valueId);
+
+                        if (field.type === 'boolean') {
+                          const trueValue = fieldValues.find(
+                            (value) => value.label.trim().toLowerCase() === 'true'
+                          );
+                          const falseValue = fieldValues.find(
+                            (value) => value.label.trim().toLowerCase() === 'false'
+                          );
+                          const checked = trueValue
+                            ? currentValueIds.includes(trueValue.id)
+                            : false;
+                          return (
+                            <GridItem colSpan={4} key={field.id}>
+                              <Field.Root>
+                                <Field.Label fontSize="xs" color="muted">
+                                  {field.name}
+                                </Field.Label>
+                                <Checkbox.Root
+                                  checked={checked}
+                                  onCheckedChange={(e) => {
+                                    const nextChecked = !!e.checked;
+                                    if (nextChecked) {
+                                      onSetPositionTag(field.id, trueValue?.id || null);
+                                      return;
+                                    }
+                                    onSetPositionTag(field.id, falseValue?.id || null);
+                                  }}
+                                >
+                                  <Checkbox.HiddenInput />
+                                  <Checkbox.Control />
+                                  <Checkbox.Label>{checked ? 'true' : 'false'}</Checkbox.Label>
+                                </Checkbox.Root>
+                              </Field.Root>
+                            </GridItem>
+                          );
+                        }
+
+                        if (field.type === 'multi') {
+                          const valueCollection = createListCollection({
+                            items: fieldValues.map((value) => ({
+                              label: value.label,
+                              value: value.id,
+                            })),
+                          });
+                          return (
+                            <GridItem colSpan={4} key={field.id}>
+                              <Field.Root>
+                                <Field.Label fontSize="xs" color="muted">
+                                  {field.name}
+                                </Field.Label>
+                                <MultiSelect
+                                  size="sm"
+                                  collection={valueCollection}
+                                  value={currentValueIds}
+                                  placeholder={`Select ${field.name}`}
+                                  onCommit={(values) => onSetPositionTag(field.id, values)}
+                                />
+                              </Field.Root>
+                            </GridItem>
+                          );
+                        }
+
+                        const valueCollection = createListCollection({
+                          items: [
+                            { label: 'Unassigned', value: '' },
+                            ...fieldValues.map((value) => ({
+                              label: value.label,
+                              value: value.id,
+                            })),
+                          ],
+                        });
+                        const currentTag = currentTags[0];
+                        return (
+                          <GridItem colSpan={4} key={field.id}>
+                            <Field.Root>
+                              <Field.Label fontSize="xs" color="muted">
+                                {field.name}
+                              </Field.Label>
+                              <Select.Root
+                                size="sm"
+                                collection={valueCollection}
+                                value={currentTag ? [currentTag.valueId] : []}
+                                onValueChange={(e) => {
+                                  const next = e.value[0] || null;
+                                  onSetPositionTag(field.id, next);
+                                }}
+                              >
+                                <Select.Control>
+                                  <Select.Trigger>
+                                    <Select.ValueText placeholder={`Select ${field.name}`} />
+                                    <Select.Indicator />
+                                  </Select.Trigger>
+                                </Select.Control>
+                                <Select.Positioner>
+                                  <Select.Content
+                                    bg="surfaceSubtle"
+                                    color="fg"
+                                    borderColor="border"
+                                    borderWidth="1px"
+                                    boxShadow="lg"
+                                  >
+                                    {valueCollection.items.map((item) => (
+                                      <Select.Item item={item} key={item.value}>
+                                        <Select.ItemText>{item.label}</Select.ItemText>
+                                      </Select.Item>
+                                    ))}
+                                  </Select.Content>
+                                </Select.Positioner>
+                              </Select.Root>
+                            </Field.Root>
+                          </GridItem>
+                        );
+                      })}
+                      <GridItem colSpan={12}>
+                        <Separator my={2} borderColor="borderSubtle" />
+                      </GridItem>
+                    </>
+                  )}
 
                   <GridItem colSpan={5}>
                     <Field.Root invalid={Boolean(riskErrorMessage)}>
@@ -605,9 +767,10 @@ export function PositionEditor({
                             </Select.Control>
                             <Select.Positioner>
                               <Select.Content
-                                bg="surface"
+                                bg="surfaceSubtle"
                                 color="fg"
                                 borderColor="border"
+                                borderWidth="1px"
                                 boxShadow="lg"
                               >
                                 {orderTypeCollection.items.map((item) => (
@@ -830,9 +993,10 @@ export function PositionEditor({
                               </Select.Control>
                               <Select.Positioner>
                                 <Select.Content
-                                  bg="surface"
+                                  bg="surfaceSubtle"
                                   color="fg"
                                   borderColor="border"
+                                  borderWidth="1px"
                                   boxShadow="lg"
                                 >
                                   {orderTypeCollection.items.map((item) => (
@@ -969,18 +1133,19 @@ export function PositionEditor({
                       </HStack>
                       <Button
                         size="sm"
-                        bg="danger"
+                        bg={isPositionClosed ? 'success' : 'danger'}
                         color="bg"
                         _hover={{ bg: 'accentAlt', color: 'bg' }}
-                        disabled={!canClose}
+                        disabled={!canClose || isPositionClosed}
                         onClick={() =>
                           onUpdate((p) => {
+                            if (p.status === 'closed') return;
                             p.status = 'closed';
                             p.closedAt = Date.now();
                           })
                         }
                       >
-                        Close Position
+                        {isPositionClosed ? 'Position Closed' : 'Close Position'}
                       </Button>
                     </HStack>
                   </GridItem>

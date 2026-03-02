@@ -1,4 +1,4 @@
-import { Select as ChakraSelect, Portal } from '@chakra-ui/react';
+import { Select as ChakraSelect } from '@chakra-ui/react';
 
 type RootProps<T extends object> = ChakraSelect.RootProps<T>;
 
@@ -34,24 +34,23 @@ export function MultiSelect<T extends { label: string; value: string }>({
           <ChakraSelect.Indicator />
         </ChakraSelect.Trigger>
       </ChakraSelect.Control>
-      <Portal>
-        <ChakraSelect.Positioner>
-          <ChakraSelect.Content
-            bg="surface"
-            color="fg"
-            borderColor="border"
-            boxShadow="lg"
-            zIndex="dropdown"
-          >
-            {collection.items.map((item) => (
-              <ChakraSelect.Item item={item} key={item.value}>
-                <ChakraSelect.ItemText>{item.label}</ChakraSelect.ItemText>
-                <ChakraSelect.ItemIndicator />
-              </ChakraSelect.Item>
-            ))}
-          </ChakraSelect.Content>
-        </ChakraSelect.Positioner>
-      </Portal>
+      <ChakraSelect.Positioner>
+        <ChakraSelect.Content
+          bg="surfaceSubtle"
+          color="fg"
+          borderColor="border"
+          borderWidth="1px"
+          boxShadow="lg"
+          zIndex="dropdown"
+        >
+          {collection.items.map((item) => (
+            <ChakraSelect.Item item={item} key={item.value}>
+              <ChakraSelect.ItemText>{item.label}</ChakraSelect.ItemText>
+              <ChakraSelect.ItemIndicator />
+            </ChakraSelect.Item>
+          ))}
+        </ChakraSelect.Content>
+      </ChakraSelect.Positioner>
     </ChakraSelect.Root>
   );
 }

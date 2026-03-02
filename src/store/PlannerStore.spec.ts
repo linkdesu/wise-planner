@@ -2,7 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AccountChangeModel } from '../models/AccountChangeModel';
 import { AccountModel } from '../models/AccountModel';
 import { PositionModel } from '../models/PositionModel';
+import { PositionTagModel } from '../models/PositionTagModel';
 import { SetupModel } from '../models/SetupModel';
+import { TagFieldModel } from '../models/TagFieldModel';
+import { TagValueModel } from '../models/TagValueModel';
 import { PlannerStore } from './PlannerStore';
 import * as db from './db';
 
@@ -13,6 +16,9 @@ vi.mock('./db', () => {
     getAllAccountChanges: vi.fn(async () => []),
     getAllSetups: vi.fn(async () => []),
     getAllPositions: vi.fn(async () => []),
+    getAllTagFields: vi.fn(async () => []),
+    getAllTagValues: vi.fn(async () => []),
+    getAllPositionTags: vi.fn(async () => []),
     getAllConfigs: vi.fn(async () => []),
     saveAccount: vi.fn(async () => resolved),
     saveAccountChange: vi.fn(async () => resolved),
@@ -22,6 +28,16 @@ vi.mock('./db', () => {
     deleteSetup: vi.fn(async () => resolved),
     savePosition: vi.fn(async () => resolved),
     deletePosition: vi.fn(async () => resolved),
+    saveTagField: vi.fn(async () => resolved),
+    deleteTagField: vi.fn(async () => resolved),
+    saveTagValue: vi.fn(async () => resolved),
+    deleteTagValue: vi.fn(async () => resolved),
+    savePositionTag: vi.fn(async () => resolved),
+    deletePositionTag: vi.fn(async () => resolved),
+    deletePositionTagsByPosition: vi.fn(async () => resolved),
+    deletePositionTagsByField: vi.fn(async () => resolved),
+    deletePositionTagsByValue: vi.fn(async () => resolved),
+    deleteTagValuesByField: vi.fn(async () => resolved),
     saveConfig: vi.fn(async () => resolved),
     deleteConfig: vi.fn(async () => resolved),
     bulkSave: vi.fn(async () => resolved),
@@ -68,6 +84,9 @@ describe('PlannerStore deletion rules', () => {
     vi.mocked(db.getAllAccountChanges).mockResolvedValue([]);
     vi.mocked(db.getAllSetups).mockResolvedValue([setup]);
     vi.mocked(db.getAllPositions).mockResolvedValue([pos1, pos2]);
+    vi.mocked(db.getAllTagFields).mockResolvedValue([]);
+    vi.mocked(db.getAllTagValues).mockResolvedValue([]);
+    vi.mocked(db.getAllPositionTags).mockResolvedValue([]);
     vi.mocked(db.getAllConfigs).mockResolvedValue([]);
 
     const store = new PlannerStore();
@@ -102,6 +121,9 @@ describe('PlannerStore deletion rules', () => {
     vi.mocked(db.getAllAccountChanges).mockResolvedValue([]);
     vi.mocked(db.getAllSetups).mockResolvedValue([setup]);
     vi.mocked(db.getAllPositions).mockResolvedValue([pos]);
+    vi.mocked(db.getAllTagFields).mockResolvedValue([]);
+    vi.mocked(db.getAllTagValues).mockResolvedValue([]);
+    vi.mocked(db.getAllPositionTags).mockResolvedValue([]);
     vi.mocked(db.getAllConfigs).mockResolvedValue([]);
 
     const store = new PlannerStore();
@@ -128,6 +150,9 @@ describe('PlannerStore deletion rules', () => {
     vi.mocked(db.getAllAccountChanges).mockResolvedValue([]);
     vi.mocked(db.getAllSetups).mockResolvedValue([setup]);
     vi.mocked(db.getAllPositions).mockResolvedValue([]);
+    vi.mocked(db.getAllTagFields).mockResolvedValue([]);
+    vi.mocked(db.getAllTagValues).mockResolvedValue([]);
+    vi.mocked(db.getAllPositionTags).mockResolvedValue([]);
     vi.mocked(db.getAllConfigs).mockResolvedValue([]);
 
     const store = new PlannerStore();
@@ -165,6 +190,9 @@ describe('PlannerStore deletion rules', () => {
     vi.mocked(db.getAllAccountChanges).mockResolvedValue([deposit, loss]);
     vi.mocked(db.getAllSetups).mockResolvedValue([]);
     vi.mocked(db.getAllPositions).mockResolvedValue([pos]);
+    vi.mocked(db.getAllTagFields).mockResolvedValue([]);
+    vi.mocked(db.getAllTagValues).mockResolvedValue([]);
+    vi.mocked(db.getAllPositionTags).mockResolvedValue([]);
     vi.mocked(db.getAllConfigs).mockResolvedValue([]);
 
     const store = new PlannerStore();
@@ -172,5 +200,61 @@ describe('PlannerStore deletion rules', () => {
 
     const updated = store.accounts.find((a) => a.id === account.id);
     expect(updated?.currentBalance).toBe(122);
+  });
+
+  it('cascades positionTag rows when deleting a tag value', async () => {
+    const field = new TagFieldModel({ id: 'field-1', name: 'Entry Strategy', isActive: true });
+    const value = new TagValueModel({ id: 'value-1', fieldId: field.id, label: 'Breakout' });
+    const relation = new PositionTagModel({
+      id: 'relation-1',
+      positionId: 'pos-1',
+      fieldId: field.id,
+      valueId: value.id,
+    });
+
+    vi.mocked(db.getAllAccounts).mockResolvedValue([]);
+    vi.mocked(db.getAllAccountChanges).mockResolvedValue([]);
+    vi.mocked(db.getAllSetups).mockResolvedValue([]);
+    vi.mocked(db.getAllPositions).mockResolvedValue([]);
+    vi.mocked(db.getAllTagFields).mockResolvedValue([field]);
+    vi.mocked(db.getAllTagValues).mockResolvedValue([value]);
+    vi.mocked(db.getAllPositionTags).mockResolvedValue([relation]);
+    vi.mocked(db.getAllConfigs).mockResolvedValue([]);
+
+    const store = new PlannerStore();
+    await waitForLoaded(store);
+
+    store.deleteTagValue(value.id);
+
+    expect(store.tagValues.find((v) => v.id === value.id)).toBeUndefined();
+    expect(store.positionTags.find((tag) => tag.valueId === value.id)).toBeUndefined();
+    expect(db.deletePositionTagsByValue).toHaveBeenCalledWith(value.id);
+  });
+
+  it('upserts one position tag per field and position', async () => {
+    const field = new TagFieldModel({ id: 'field-1', name: 'Entry Strategy', isActive: true });
+    const oldValue = new TagValueModel({ id: 'value-1', fieldId: field.id, label: 'Breakout' });
+    const newValue = new TagValueModel({ id: 'value-2', fieldId: field.id, label: 'Pullback' });
+
+    vi.mocked(db.getAllAccounts).mockResolvedValue([]);
+    vi.mocked(db.getAllAccountChanges).mockResolvedValue([]);
+    vi.mocked(db.getAllSetups).mockResolvedValue([]);
+    vi.mocked(db.getAllPositions).mockResolvedValue([]);
+    vi.mocked(db.getAllTagFields).mockResolvedValue([field]);
+    vi.mocked(db.getAllTagValues).mockResolvedValue([oldValue, newValue]);
+    vi.mocked(db.getAllPositionTags).mockResolvedValue([]);
+    vi.mocked(db.getAllConfigs).mockResolvedValue([]);
+
+    const store = new PlannerStore();
+    await waitForLoaded(store);
+
+    store.setPositionTag('pos-1', field.id, oldValue.id);
+    store.setPositionTag('pos-1', field.id, newValue.id);
+
+    const relations = store.positionTags.filter(
+      (tag) => tag.positionId === 'pos-1' && tag.fieldId === field.id
+    );
+    expect(relations).toHaveLength(1);
+    expect(relations[0].valueId).toBe(newValue.id);
   });
 });

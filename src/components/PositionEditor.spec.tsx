@@ -2,9 +2,13 @@ import { ChakraProvider } from '@chakra-ui/react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Decimal from 'decimal.js';
+import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PositionModel } from '../models/PositionModel';
+import { PositionTagModel } from '../models/PositionTagModel';
 import { SetupModel } from '../models/SetupModel';
+import { TagFieldModel } from '../models/TagFieldModel';
+import { TagValueModel } from '../models/TagValueModel';
 import system from '../theme/monokai';
 import { PositionEditor } from './PositionEditor';
 
@@ -83,9 +87,14 @@ const computeExpected = (stopLossPrice: number, riskAmount: number) => {
 describe('PositionEditor', () => {
   let setup: SetupModel;
   let position: PositionModel;
+  let tagFields: TagFieldModel[];
+  let tagValues: TagValueModel[];
+  let positionTags: PositionTagModel[];
+
   const onUpdate = vi.fn((updater: (p: PositionModel) => void) => {
     updater(position);
   });
+  const onSetPositionTag = vi.fn();
 
   const renderEditor = () =>
     render(
@@ -95,20 +104,52 @@ describe('PositionEditor', () => {
           position={position}
           setups={[setup]}
           allSetups={[setup]}
+          tagFields={tagFields}
+          tagValues={tagValues}
+          positionTags={positionTags}
           accountBalance={10000}
           accountFees={{ makerFee: 0, takerFee: 0 }}
           onUpdate={onUpdate}
           onRequestDelete={vi.fn()}
+          onSetPositionTag={onSetPositionTag}
           onClose={vi.fn()}
         />
       </ChakraProvider>
     );
+
+  const rerenderEditor = (rerender: (ui: ReactNode) => void) => {
+    rerender(
+      <ChakraProvider value={system}>
+        <PositionEditor
+          open
+          position={position}
+          setups={[setup]}
+          allSetups={[setup]}
+          tagFields={tagFields}
+          tagValues={tagValues}
+          positionTags={positionTags}
+          accountBalance={10000}
+          accountFees={{ makerFee: 0, takerFee: 0 }}
+          onUpdate={onUpdate}
+          onRequestDelete={vi.fn()}
+          onSetPositionTag={onSetPositionTag}
+          onClose={vi.fn()}
+        />
+      </ChakraProvider>
+    );
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
     setup = buildSetup();
     position = buildPosition(setup);
     position.recalculateRiskDriven(setup, 10000);
+    tagFields = [new TagFieldModel({ id: 'field-1', name: 'Entry Strategy', isActive: true })];
+    tagValues = [
+      new TagValueModel({ id: 'value-breakout', fieldId: 'field-1', label: 'Breakout' }),
+      new TagValueModel({ id: 'value-pullback', fieldId: 'field-1', label: 'Pullback' }),
+    ];
+    positionTags = [];
   });
 
   it('should keep risk amount and price when stop loss changes', () => {
@@ -117,21 +158,7 @@ describe('PositionEditor', () => {
     position.stopLossPrice = 90;
     position.recalculateRiskDriven(setup, 10000);
 
-    rerender(
-      <ChakraProvider value={system}>
-        <PositionEditor
-          open
-          position={position}
-          setups={[setup]}
-          allSetups={[setup]}
-          accountBalance={10000}
-          accountFees={{ makerFee: 0, takerFee: 0 }}
-          onUpdate={onUpdate}
-          onRequestDelete={vi.fn()}
-          onClose={vi.fn()}
-        />
-      </ChakraProvider>
-    );
+    rerenderEditor(rerender);
 
     expect(screen.getByDisplayValue('100')).toBeInTheDocument();
     expect(screen.getByDisplayValue('120')).toBeInTheDocument();
@@ -144,21 +171,7 @@ describe('PositionEditor', () => {
     position.stopLossPrice = 90;
     position.recalculateRiskDriven(setup, 10000);
 
-    rerender(
-      <ChakraProvider value={system}>
-        <PositionEditor
-          open
-          position={position}
-          setups={[setup]}
-          allSetups={[setup]}
-          accountBalance={10000}
-          accountFees={{ makerFee: 0, takerFee: 0 }}
-          onUpdate={onUpdate}
-          onRequestDelete={vi.fn()}
-          onClose={vi.fn()}
-        />
-      </ChakraProvider>
-    );
+    rerenderEditor(rerender);
 
     const expected = computeExpected(90, 100);
 
@@ -174,21 +187,7 @@ describe('PositionEditor', () => {
     position.riskAmount = 200;
     position.recalculateRiskDriven(setup, 10000);
 
-    rerender(
-      <ChakraProvider value={system}>
-        <PositionEditor
-          open
-          position={position}
-          setups={[setup]}
-          allSetups={[setup]}
-          accountBalance={10000}
-          accountFees={{ makerFee: 0, takerFee: 0 }}
-          onUpdate={onUpdate}
-          onRequestDelete={vi.fn()}
-          onClose={vi.fn()}
-        />
-      </ChakraProvider>
-    );
+    rerenderEditor(rerender);
 
     expect(screen.getByDisplayValue('95')).toBeInTheDocument();
     expect(screen.getByDisplayValue('120')).toBeInTheDocument();
@@ -201,21 +200,7 @@ describe('PositionEditor', () => {
     position.riskAmount = 200;
     position.recalculateRiskDriven(setup, 10000);
 
-    rerender(
-      <ChakraProvider value={system}>
-        <PositionEditor
-          open
-          position={position}
-          setups={[setup]}
-          allSetups={[setup]}
-          accountBalance={10000}
-          accountFees={{ makerFee: 0, takerFee: 0 }}
-          onUpdate={onUpdate}
-          onRequestDelete={vi.fn()}
-          onClose={vi.fn()}
-        />
-      </ChakraProvider>
-    );
+    rerenderEditor(rerender);
 
     const expected = computeExpected(95, 200);
 
@@ -234,22 +219,7 @@ describe('PositionEditor', () => {
     expect(closePositionButton).toBeDisabled();
 
     position.pnl = 123;
-
-    rerender(
-      <ChakraProvider value={system}>
-        <PositionEditor
-          open
-          position={position}
-          setups={[setup]}
-          allSetups={[setup]}
-          accountBalance={10000}
-          accountFees={{ makerFee: 0, takerFee: 0 }}
-          onUpdate={onUpdate}
-          onRequestDelete={vi.fn()}
-          onClose={vi.fn()}
-        />
-      </ChakraProvider>
-    );
+    rerenderEditor(rerender);
 
     const refreshedCloseButtons = screen.getAllByRole('button', { name: /close/i });
     const enabledCloseButton = refreshedCloseButtons.find((btn) => !btn.hasAttribute('disabled'));
@@ -273,21 +243,7 @@ describe('PositionEditor', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /new\sstep/i }));
 
-    rerender(
-      <ChakraProvider value={system}>
-        <PositionEditor
-          open
-          position={position}
-          setups={[setup]}
-          allSetups={[setup]}
-          accountBalance={10000}
-          accountFees={{ makerFee: 0, takerFee: 0 }}
-          onUpdate={onUpdate}
-          onRequestDelete={vi.fn()}
-          onClose={vi.fn()}
-        />
-      </ChakraProvider>
-    );
+    rerenderEditor(rerender);
 
     const priceInput = screen.getByLabelText('Chase Step 1 Price');
     await user.clear(priceInput);
@@ -306,5 +262,18 @@ describe('PositionEditor', () => {
     await waitFor(() => {
       expect(position.chaseSteps[0].size).toBe(2);
     });
+  });
+
+  it('should render tag fields and persist tag selection via relation callback', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+
+    expect(screen.getByText('Entry Strategy')).toBeInTheDocument();
+
+    const selectTrigger = screen.getByRole('combobox', { name: 'Entry Strategy' });
+    await user.click(selectTrigger);
+    await user.click(screen.getByText('Breakout'));
+
+    expect(onSetPositionTag).toHaveBeenCalledWith('field-1', 'value-breakout');
   });
 });

@@ -22,7 +22,20 @@ import { PositionEditor } from './PositionEditor';
 import { PositionHistoryTable } from './PositionHistoryTable';
 
 export function PositionWorkspace() {
-  const { accounts, setups, positions, addPosition, updatePosition, deletePosition } = usePlanner();
+  const {
+    accounts,
+    setups,
+    positions,
+    tagFields,
+    tagValues,
+    positionTags,
+    addPosition,
+    updatePosition,
+    deletePosition,
+    setPositionTag,
+    setPositionTags,
+    clearPositionTag,
+  } = usePlanner();
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   const [activeTab, setActiveTab] = useState('active');
   const [editingPositionId, setEditingPositionId] = useState<string | null>(null);
@@ -294,6 +307,9 @@ export function PositionWorkspace() {
         position={editingPosition}
         setups={activeSetups}
         allSetups={setups}
+        tagFields={tagFields}
+        tagValues={tagValues}
+        positionTags={positionTags.filter((tag) => tag.positionId === editingPositionId)}
         accountBalance={editingAccount?.currentBalance ?? 0}
         accountFees={{
           makerFee: editingAccount?.makerFee ?? 0,
@@ -306,6 +322,22 @@ export function PositionWorkspace() {
         onRequestDelete={() => {
           if (!editingPositionId) return;
           setPendingDeletePositionId(editingPositionId);
+        }}
+        onSetPositionTag={(fieldId, valueId) => {
+          if (!editingPositionId) return;
+          if (Array.isArray(valueId)) {
+            if (valueId.length === 0) {
+              clearPositionTag(editingPositionId, fieldId);
+              return;
+            }
+            setPositionTags(editingPositionId, fieldId, valueId);
+            return;
+          }
+          if (!valueId) {
+            clearPositionTag(editingPositionId, fieldId);
+            return;
+          }
+          setPositionTag(editingPositionId, fieldId, valueId);
         }}
         onClose={() => setEditingPositionId(null)}
       />
