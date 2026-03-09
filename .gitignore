@@ -29,3 +29,4 @@ openspec/specs/
 
 # Local Netlify folder
 .netlify
+.alma-snapshots
